@@ -4,21 +4,26 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-
 void generate_execv_args(char* parsed_input, char** args);
 void null_terminate_input(char* parsed_input, char* raw_input);
+// Built in function
+void handle_cd(char **args);
+void handle_path(char **args);
 
 #define MAXLINE 100
 #define MAXARGS 20      // Including the NULL TERMINATOR
 #define MAXNAME 10       
+#define MAXPATHS 10
+
+char* search_paths[MAXPATHS];
 
 int main(void)
 {
         char* input = malloc(MAXLINE);
-        // if (freopen("input.txt", "r", stdin) == NULL)
-        // {
-        //         perror("error opening stdin");
-        // }
+        if (freopen("input.txt", "r", stdin) == NULL)
+        {
+                perror("error opening stdin");
+        }
 
         while (1)              // Main While loop
         {
@@ -33,9 +38,29 @@ int main(void)
                 // Generate execv arguments
                 char **args = malloc(MAXARGS);
                 generate_execv_args(parsed_input, args);
+
+                // check if this is a built in command (exit, cd, path)
+                if (!strcmp("exit", args[0]))
+                {
+                        exit(0);
+                }
+                if (!strcmp("cd", args[0]))
+                {
+                        handle_cd(args);
+                        continue;
+                }
+
+                if (!strcmp("path", args[0]))
+                {
+                        handle_path(args);
+                        free_args(args);
+                        continue;
+                }
+
+                // Not a built in command
                 char path[10] = "/bin/";
                 strcat(path, args[0]);
-                
+
                 // Single child process for now.
                 pid_t process = fork();
                 if (process < 0)
@@ -57,18 +82,24 @@ int main(void)
                 // parent stuff
                 wait(NULL);
 
-                // free arguments' memory
-                for (int i = 0; args[i] != NULL; i++)
-                {
-                        free(args[i]);
-                }
-                free(args);
+                // Free mem
+                free_args(args);
 
                 // do its 
                 printf("\n");
         }
         // Free input memory at the end
         free(input);
+}
+
+void free_args(char** args)
+{
+        // free arguments' memory
+        for (int i = 0; args[i] != NULL; i++)
+        {
+                free(args[i]);
+        }
+        free(args);
 }
 
 // null_terminate_input - replaces the \n with \0 from raw input
@@ -103,5 +134,26 @@ void generate_execv_args(char* parsed_input, char** args)
                 count++;
         }
         *(args+count) = NULL;
+}
+
+void handle_cd(char **args)
+{
+        chdir(*(args+1));
+}
+
+void handle_path(char **args)
+{
+        args++;
+        int count = 0;
+        while (*(args) != NULL)
+        {
+                // TODO: Check if the path is valid
+                *(search_paths+count) = malloc(strlen(*(args)));
+                strcpy(*(search_paths+count), *(args));
+                args++;
+                count++;
+        }
+        *(search_paths+count) = malloc(strlen(*(args)));
+        *(search_paths+count) = NULL;
 }
 
