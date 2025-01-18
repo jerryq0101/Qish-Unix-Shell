@@ -6,9 +6,11 @@
 
 void generate_execv_args(char* parsed_input, char** args);
 void null_terminate_input(char* parsed_input, char* raw_input);
-// Built in function
+// Built-in-command handlers
 void handle_cd(char **args);
 void handle_path(char **args);
+// freeing stuff
+void free_nested_arr(char** nested);
 
 #define MAXLINE 100
 #define MAXARGS 20      // Including the NULL TERMINATOR
@@ -53,7 +55,7 @@ int main(void)
                 if (!strcmp("path", args[0]))
                 {
                         handle_path(args);
-                        free_args(args);
+                        free_nested_arr(args);
                         continue;
                 }
 
@@ -83,23 +85,24 @@ int main(void)
                 wait(NULL);
 
                 // Free mem
-                free_args(args);
+                free_nested_arr(args);
 
                 // do its 
                 printf("\n");
         }
-        // Free input memory at the end
-        free(input);
+        
+        // Free global vars at the end
+        free(input);                    // free input
 }
 
-void free_args(char** args)
+void free_nested_arr(char** nested)
 {
         // free arguments' memory
-        for (int i = 0; args[i] != NULL; i++)
+        for (int i = 0; nested[i] != NULL; i++)
         {
-                free(args[i]);
+                free(nested[i]);
         }
-        free(args);
+        free(nested);
 }
 
 // null_terminate_input - replaces the \n with \0 from raw input
@@ -136,6 +139,8 @@ void generate_execv_args(char* parsed_input, char** args)
         *(args+count) = NULL;
 }
 
+
+// BUILT IN COMMAND HANDLERS
 void handle_cd(char **args)
 {
         chdir(*(args+1));
@@ -153,7 +158,7 @@ void handle_path(char **args)
                 args++;
                 count++;
         }
-        *(search_paths+count) = malloc(strlen(*(args)));
         *(search_paths+count) = NULL;
+        // Note: search_paths empty elements are null naturally.
 }
 
