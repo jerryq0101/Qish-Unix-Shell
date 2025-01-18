@@ -56,8 +56,8 @@ int main(void)
 
                 // parent stuff
                 wait(NULL);
-                
-                // free taken up memory
+
+                // free arguments' memory
                 for (int i = 0; args[i] != NULL; i++)
                 {
                         free(args[i]);
@@ -67,9 +67,11 @@ int main(void)
                 // do its 
                 printf("\n");
         }
+        // Free input memory at the end
+        free(input);
 }
 
-// null_terminate_input - replaces the \n with \0 in input
+// null_terminate_input - replaces the \n with \0 from raw input
 void null_terminate_input(char* parsed_input, char* raw_input)
 {
         int count = 0;
