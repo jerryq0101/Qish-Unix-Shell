@@ -5,9 +5,12 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <sys/stat.h> 
+#include <ctype.h>
 
+// Formatting
 void generate_execv_args(char* parsed_input, char** args);
 void null_terminate_input(char* parsed_input, char* raw_input);
+void collapse_white_space_group(char *dest, char *input);
 
 // Built-in-command handlers
 void handle_cd(char **args);
@@ -47,6 +50,9 @@ int main(int argc, char *argv[])
                         exit(1);
                 }
 
+                // Toggle Batch mode
+                batch_mode = 1;
+
                 // redirection of stdin to the file
                 int fd = open(argv[1], O_RDONLY);
                 if ((fd = open(argv[1], O_RDONLY)) == -1)
@@ -60,21 +66,28 @@ int main(int argc, char *argv[])
         
         while (1)              // Main While loop
         {
-                printf("process> ");
+                
+                if (!batch_mode)        // Interactive mode prompt
+                {
+                        printf("process> ");
+                }
                 size_t variable = (long) MAXLINE;
                 getline(&input, &variable, stdin);
 
-                // Check for EOF and end of line
-                if (*input == EOF || input == NULL || *input == '\0')
+                if (*input == EOF || input == NULL || *input == '\0')   // Handle input termination on batch mode
                 {
                         exit(0);
                 }
                 
-                // Parse the line
-                char parsed_input[MAXLINE];
-                null_terminate_input(parsed_input, input);
 
-                // Generate execv arguments or redirection arguments or parallel commands
+                char parsed_input[MAXLINE];
+
+                null_terminate_input(parsed_input, input);              // parse line
+
+                // Get rid of groups of white spaces, until the \n symbol
+                collapse_white_space_group(parsed_input, parsed_input);
+                
+                // Generate execv arguments / redirection arguments or parallel commands
                 char **args = malloc(MAXARGS);
                 generate_execv_args(parsed_input, args);
 
@@ -121,18 +134,18 @@ int main(int argc, char *argv[])
                         exit(1);
                 }
 
-                // parent stuff
+                // parent waits for children
                 wait(NULL);
 
                 // Free mem
                 free_nested_arr(args);
 
-                // do its 
+                // Universally, there should always be a newline after each command (batch mode and interactive mode)
                 printf("\n");
         }
         
         // Free global vars at the end
-        free(input);                    // free input
+        free(input);                            // free input
 }
 
 void free_nested_arr(char** nested)
@@ -162,7 +175,6 @@ void null_terminate_input(char* parsed_input, char* raw_input)
 // program_name - char pointer (string)
 // args - an array of char pointers (strings)
 
-// PRECONDITION: dealing with a single program and not handling any redirection
 void generate_execv_args(char* parsed_input, char** args)
 {
         // parse input in here and set those variables
@@ -249,4 +261,43 @@ void configure_redirection(char **args)
         int fd = open(*(args+count+1), O_WRONLY);
         dup2(fd, STDOUT_FILENO);
         close(fd);
+}
+
+// Collapses groups of blank space into one
+// Between the last char and /0 space, delete any blank space
+// PRECONDITION: all space (group) positionings are correct
+void collapse_white_space_group(char *dest, char *input)
+{
+        int count = 0;
+        int insertion_index = 0;
+
+        // Collapses all space groups into one space
+        while (input[count] != '\0')
+        {
+                if (isspace(input[count]))                    // Found a space at this position
+                {
+                        dest[insertion_index] = ' ';          // Place a space at this position
+                        while (isspace(input[count]))         // Go to next non space char.
+                        {
+                                count++;
+                        }
+                        insertion_index++;
+                }
+                else                                          // Character here
+                {
+                        dest[insertion_index] = input[count];
+                        count++;
+                        insertion_index++;
+                }
+
+        }
+        // Check if slot before is a space, then null terminate it before.
+        if (dest[insertion_index-1] == ' ')
+        {
+                dest[insertion_index-1] = '\0';
+        }
+        else
+        {
+                dest[insertion_index] = '\0';
+        }
 }

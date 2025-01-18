@@ -1,2 +1,2 @@
-path /bin/
-ls
+path            /bin/ /usr/bin/         
+ls      -l
