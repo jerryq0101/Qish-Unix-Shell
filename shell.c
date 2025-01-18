@@ -15,7 +15,7 @@ void collapse_white_space_group(char *dest, char *input);
 // Built-in-command handlers
 void handle_cd(char **args);
 void handle_path(char **args);
-void select_search_path(char *path);
+void select_search_path(char *path, char* name);
 
 // freeing stuff
 void free_nested_arr(char** nested);
@@ -57,16 +57,15 @@ int main(int argc, char *argv[])
                 int fd = open(argv[1], O_RDONLY);
                 if ((fd = open(argv[1], O_RDONLY)) == -1)
                 {
-                        perror("error opening stdin");
+                        perror("Error opening specified file");
+                        exit(1);
                 }
                 dup2(fd, STDIN_FILENO);
                 close(fd);
         }
-
         
         while (1)              // Main While loop
         {
-                
                 if (!batch_mode)        // Interactive mode prompt
                 {
                         printf("process> ");
@@ -79,7 +78,6 @@ int main(int argc, char *argv[])
                         exit(0);
                 }
                 
-
                 char parsed_input[MAXLINE];
 
                 null_terminate_input(parsed_input, input);              // parse line
@@ -90,8 +88,6 @@ int main(int argc, char *argv[])
                 // Generate execv arguments / redirection arguments or parallel commands
                 char **args = malloc(MAXARGS);
                 generate_execv_args(parsed_input, args);
-
-                configure_redirection(args);
 
                 // Check if built in command (exit, cd, path)
                 if (!strcmp("exit", args[0]))
@@ -113,8 +109,8 @@ int main(int argc, char *argv[])
                 // Not a built in command
                 // check if process exists in the different search paths
                 char path[10];
-                select_search_path(path);         // finds suitable search path out of search_path and puts it in path, if not...
-                strcat(path, args[0]);
+                select_search_path(path, args[0]);         // finds suitable search path out of search_path and puts it in path, if not...
+                // strcat(path, args[0]);
 
                 // Single child process for now.
                 pid_t process = fork();
@@ -124,6 +120,8 @@ int main(int argc, char *argv[])
                 }
                 else if (process == 0)
                 {
+                        configure_redirection(args);
+
                         // process, we have access to parsed input.
                         execv(path, args);
                         // char *args[] = {"ls", "-l", NULL};
@@ -215,12 +213,15 @@ void handle_path(char **args)
         // TODO: ENFORCE ^
 }
 
-void select_search_path(char *path)
+void select_search_path(char *path, char* name)
 {
         int count = 0;
+        char temp[100];
         while (search_paths[count] != NULL)
         {
-                if (!access(search_paths[count], X_OK))
+                strcpy(temp, search_paths[count]);
+                strcat(temp, path);
+                if (!access(temp, X_OK))
                 {
                         strcpy(path, search_paths[count]);
                         return;
@@ -247,7 +248,7 @@ void configure_redirection(char **args)
         if (*(args+count+1) == NULL || !strcmp(*(args+count+1), ">"))           // Case: doesn't exist any valid file/directory after the redirection character
         {
                 fprintf(stderr, "Invalid token after redirection character");
-                exit(1);
+                exit(1);                                                        // Exits this specific process, keeps looking for the next command though.
         }
 
         // DON"T HAVE TO CHECK THE COMMAND and NAME validity, just have to check that characters exist in the format

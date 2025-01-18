@@ -1,2 +1,2 @@
 path            /bin/ /usr/bin/         
-ls      -l
+ls      -l      > ./random_file.txt
