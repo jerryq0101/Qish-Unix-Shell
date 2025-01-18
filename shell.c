@@ -87,7 +87,8 @@ int main(int argc, char *argv[])
                 printf("PARSED INPUT! %s\n", parsed_input);
                 
                 // Generate execv arguments / redirection arguments or parallel commands
-                char **args = malloc(MAXARGS * sizeof(char*));
+                // SIZE: 20 * sizeof(char*) = 20 * 8 = 160 (20 strings vs 20 bytes)
+                char **args = malloc(MAXARGS * sizeof(char*));  
                 generate_execv_args(parsed_input, args);
 
                 printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
@@ -199,6 +200,11 @@ void generate_execv_args(char* parsed_input, char** args)
         int count = 0;
         while ((token = strsep(&parsed_input, " ")) != NULL)    // each token is nul terminated
         {
+                // this position will set the arr[count] for first 2 as 8 byte pointer, 
+                // as soon as we arrive at the 3rd token, the args memory block is not enough, 
+                // so the function likely terminates
+                // When we write beyond the allocated memory (storing it in the third pointer spot),
+                // anything can happen to the entire args array because I am corrupting memory.
                 args[count] = malloc(strlen(token)+1);
                 strcpy(args[count], token);
                 count++;
