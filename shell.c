@@ -48,8 +48,6 @@ int main(void)
                 // Generate execv arguments or redirection arguments or parallel commands
                 char **args = malloc(MAXARGS);
                 generate_execv_args(parsed_input, args);
-                
-                configure_redirection(args);
 
                 // check if this is a built in command (exit, cd, path)
                 if (!strcmp("exit", args[0]))
@@ -85,6 +83,7 @@ int main(void)
                 }
                 else if (process == 0)
                 {
+                        configure_redirection(args);
 
                         // process, we have access to parsed input.
                         execv(path, args);
@@ -206,7 +205,7 @@ void configure_redirection(char **args)
         {
                 return;
         } 
-        if (*(args+count+1) == NULL || !strcmp(*(args+count+1), ">"))           // Case: doesn't exist a filename after the redirection character
+        if (*(args+count+1) == NULL || !strcmp(*(args+count+1), ">"))           // Case: doesn't exist any valid file/directory after the redirection character
         {
                 fprintf(stderr, "Invalid token after redirection character");
                 exit(1);
@@ -214,6 +213,9 @@ void configure_redirection(char **args)
 
         // DON"T HAVE TO CHECK THE COMMAND and NAME validity, just have to check that characters exist in the format
         // TODO: potentially more error checking cases
+
+        // Delete redirection operator by null termination
+        *(args+count) = NULL;
         
         // Setup redirection
         // Note: *(args+count) is > character
