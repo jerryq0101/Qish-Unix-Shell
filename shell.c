@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <fcntl.h>
+#include <sys/stat.h> 
 
 void generate_execv_args(char* parsed_input, char** args);
 void null_terminate_input(char* parsed_input, char* raw_input);
@@ -14,6 +16,9 @@ void select_search_path(char *path);
 
 // freeing stuff
 void free_nested_arr(char** nested);
+
+// Redirection
+void configure_redirection(char **args);
 
 #define MAXLINE 100
 #define MAXARGS 20      // Including the NULL TERMINATOR
@@ -40,9 +45,11 @@ int main(void)
                 char parsed_input[MAXLINE];
                 null_terminate_input(parsed_input, input);  
 
-                // Generate execv arguments
+                // Generate execv arguments or redirection arguments or parallel commands
                 char **args = malloc(MAXARGS);
                 generate_execv_args(parsed_input, args);
+                
+                configure_redirection(args);
 
                 // check if this is a built in command (exit, cd, path)
                 if (!strcmp("exit", args[0]))
@@ -62,10 +69,9 @@ int main(void)
                         continue;
                 }
 
-                // check if process exists in the different search paths
                 // Not a built in command
+                // check if process exists in the different search paths
                 char path[10];
-
                 select_search_path(path);         // finds suitable search path out of search_path and puts it in path, if not...
                 strcat(path, args[0]);
 
@@ -184,4 +190,34 @@ void select_search_path(char *path)
                 }
                 count++;
         }
+}
+
+// configure_redirection - check for redirection operators and modify the arg list to fit
+// PRECONDITION: currently dealing with single program redirection
+void configure_redirection(char **args)
+{
+        int count = 0;
+        while (strcmp(*(args+count), ">") != 0 && *(args+count) != NULL) 
+        {
+                count++;
+        }
+        
+        if (*(args+count) == NULL)                                             // Case: no redirection operators
+        {
+                return;
+        } 
+        if (*(args+count+1) == NULL || !strcmp(*(args+count+1), ">"))           // Case: doesn't exist a filename after the redirection character
+        {
+                fprintf(stderr, "Invalid token after redirection character");
+                exit(1);
+        }
+
+        // DON"T HAVE TO CHECK THE COMMAND and NAME validity, just have to check that characters exist in the format
+        // TODO: potentially more error checking cases
+        
+        // Setup redirection
+        // Note: *(args+count) is > character
+        int fd = open(*(args+count+1), O_WRONLY);
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
 }
