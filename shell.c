@@ -25,19 +25,18 @@ void configure_redirection(char **args);
 
 #define MAXLINE 100
 #define MAXARGS 20
-#define MAXNAME 10
 #define MAXPATHS 10
 
-char* search_paths[MAXPATHS];
+char* search_paths[MAXPATHS * sizeof(char*)];
 
 int main(int argc, char *argv[])
 {
         char* input = malloc(MAXLINE);
 
-        if (freopen("input.txt", "r", stdin) == NULL)
-        {
-                perror("error opening stdin");
-        }
+        // if (freopen("input.txt", "r", stdin) == NULL)
+        // {
+        //         perror("error opening stdin");
+        // }
 
         int batch_mode = 0;
 
@@ -85,9 +84,14 @@ int main(int argc, char *argv[])
                 // Get rid of groups of white spaces, until the \n symbol
                 collapse_white_space_group(parsed_input, parsed_input);
                 
+                printf("PARSED INPUT! %s\n", parsed_input);
+                
                 // Generate execv arguments / redirection arguments or parallel commands
-                char **args = malloc(MAXARGS);
+                char **args = malloc(MAXARGS * sizeof(char*));
                 generate_execv_args(parsed_input, args);
+
+                printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
+
 
                 // Check if built in command (exit, cd, path)
                 if (!strcmp("exit", args[0]))
@@ -109,8 +113,16 @@ int main(int argc, char *argv[])
                 // Not a built in command
                 // check if process exists in the different search paths
                 char path[10];
+                for (int i = 0 ; search_paths[i] != NULL; i++)
+                {
+                        printf("search_path item: %s\n", search_paths[i]);
+                }
+                printf("ARGS[0] BEFORE : %s\n", args[0]);
                 select_search_path(path, args[0]);         // finds suitable search path out of search_path and puts it in path, if not...
+                printf("ARGS[0] AFTER : %s\n", args[0]);
+
                 // strcat(path, args[0]);
+                printf("Selected Search Path: %s\n", path);
 
                 // Single child process for now.
                 pid_t process = fork();
@@ -121,6 +133,11 @@ int main(int argc, char *argv[])
                 else if (process == 0)
                 {
                         configure_redirection(args);
+
+                        // DEBUG!!
+                        FILE *f = fopen("debug.txt", "a");
+                        fprintf(f, "Debug child: path=%s\n", path);
+                        fclose(f);
 
                         // process, we have access to parsed input.
                         execv(path, args);
@@ -182,8 +199,8 @@ void generate_execv_args(char* parsed_input, char** args)
         int count = 0;
         while ((token = strsep(&parsed_input, " ")) != NULL)    // each token is nul terminated
         {
-                *(args+count) = malloc(strlen(token)+1);
-                strcpy(*(args+count), token);
+                args[count] = malloc(strlen(token)+1);
+                strcpy(args[count], token);
                 count++;
         }
         *(args+count) = NULL;
@@ -217,13 +234,15 @@ void select_search_path(char *path, char* name)
 {
         int count = 0;
         char temp[100];
+        printf("SELECT SEARCH PATH FUNCTION\n");
+        printf("NAME: %s\n", name);
         while (search_paths[count] != NULL)
         {
                 strcpy(temp, search_paths[count]);
-                strcat(temp, path);
+                strcat(temp, name);
                 if (!access(temp, X_OK))
                 {
-                        strcpy(path, search_paths[count]);
+                        strcpy(path, temp);
                         return;
                 }
                 count++;
@@ -259,7 +278,7 @@ void configure_redirection(char **args)
         
         // Setup redirection
         // Note: *(args+count) is > character
-        int fd = open(*(args+count+1), O_WRONLY);
+        int fd = open(*(args+count+1), O_WRONLY | O_CREAT | O_TRUNC, 0644);
         dup2(fd, STDOUT_FILENO);
         close(fd);
 }
