@@ -6,9 +6,12 @@
 
 void generate_execv_args(char* parsed_input, char** args);
 void null_terminate_input(char* parsed_input, char* raw_input);
+
 // Built-in-command handlers
 void handle_cd(char **args);
 void handle_path(char **args);
+void select_search_path(char *path);
+
 // freeing stuff
 void free_nested_arr(char** nested);
 
@@ -22,10 +25,10 @@ char* search_paths[MAXPATHS];
 int main(void)
 {
         char* input = malloc(MAXLINE);
-        if (freopen("input.txt", "r", stdin) == NULL)
-        {
-                perror("error opening stdin");
-        }
+        // if (freopen("input.txt", "r", stdin) == NULL)
+        // {
+        //         perror("error opening stdin");
+        // }
 
         while (1)              // Main While loop
         {
@@ -59,9 +62,14 @@ int main(void)
                         continue;
                 }
 
+                // check if process exists in the different search paths
                 // Not a built in command
-                char path[10] = "/bin/";
+                char path[10];
+
+                select_search_path(path);         // finds suitable search path out of search_path and puts it in path, if not...
                 strcat(path, args[0]);
+
+                printf("Access:%d\n", access(path, X_OK));
 
                 // Single child process for now.
                 pid_t process = fork();
@@ -71,6 +79,7 @@ int main(void)
                 }
                 else if (process == 0)
                 {
+
                         // process, we have access to parsed input.
                         execv(path, args);
                         // char *args[] = {"ls", "-l", NULL};
@@ -132,7 +141,7 @@ void generate_execv_args(char* parsed_input, char** args)
         int count = 0;
         while ((token = strsep(&parsed_input, " ")) != NULL)    // each token is nul terminated
         {
-                *(args+count) = malloc(strlen(token));
+                *(args+count) = malloc(strlen(token)+1);
                 strcpy(*(args+count), token);
                 count++;
         }
@@ -153,12 +162,26 @@ void handle_path(char **args)
         while (*(args) != NULL)
         {
                 // TODO: Check if the path is valid
-                *(search_paths+count) = malloc(strlen(*(args)));
+                *(search_paths+count) = malloc(strlen(*(args)) +1);
                 strcpy(*(search_paths+count), *(args));
                 args++;
                 count++;
         }
         *(search_paths+count) = NULL;
-        // Note: search_paths empty elements are null naturally.
+        // Note: empty search_paths[i] are 0x0 naturally
+        // TODO: ENFORCE ^
 }
 
+void select_search_path(char *path)
+{
+        int count = 0;
+        while (search_paths[count] != NULL)
+        {
+                if (!access(search_paths[count], X_OK))
+                {
+                        strcpy(path, search_paths[count]);
+                        return;
+                }
+                count++;
+        }
+}
