@@ -23,9 +23,9 @@ void free_nested_arr(char** nested);
 // Redirection
 void configure_redirection(char **args);
 
-#define MAXLINE 100
-#define MAXARGS 20
-#define MAXPATHS 10
+#define MAXLINE 100     // MAXLINE CHARACTERS - SIZE: 100 bytes
+#define MAXARGS 20      // ARGUMENTS PER LINE - SIZE: 20 * sizeof(char*) = 20 * 8 = 160 bytes (20 char*'s)
+#define MAXPATHS 10     // SEARCH_PATHS ARR SIZE - SIZE: 10 * sizeof(char*) = 10 * 8 = 80 bytes (10 char*'s)
 
 char* search_paths[MAXPATHS * sizeof(char*)];
 
@@ -63,38 +63,29 @@ int main(int argc, char *argv[])
                 close(fd);
         }
         
-        while (1)              // Main While loop
+        while (1)                                                               // Main While loop
         {
-                if (!batch_mode)        // Interactive mode prompt
+                if (!batch_mode)                                                // Interactive mode prompt
                 {
                         printf("process> ");
                 }
                 size_t variable = (long) MAXLINE;
                 getline(&input, &variable, stdin);
 
-                if (*input == EOF || input == NULL || *input == '\0')   // Handle input termination on batch mode
+                if (*input == EOF || input == NULL || *input == '\0')           // Handle input termination on batch mode
                 {
                         exit(0);
                 }
                 
                 char parsed_input[MAXLINE];
-
-                null_terminate_input(parsed_input, input);              // parse line
-
-                // Get rid of groups of white spaces, until the \n symbol
-                collapse_white_space_group(parsed_input, parsed_input);
-                
-                printf("PARSED INPUT! %s\n", parsed_input);
+                null_terminate_input(parsed_input, input);                      // Format input
+                collapse_white_space_group(parsed_input, parsed_input);         // Collapse White space into one, and remove last space
                 
                 // Generate execv arguments / redirection arguments or parallel commands
-                // SIZE: 20 * sizeof(char*) = 20 * 8 = 160 (20 strings vs 20 bytes)
                 char **args = malloc(MAXARGS * sizeof(char*));  
                 generate_execv_args(parsed_input, args);
 
-                printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
-
-
-                // Check if built in command (exit, cd, path)
+                // Case: Built in command (exit, cd, path)
                 if (!strcmp("exit", args[0]))
                 {
                         exit(0);
@@ -111,19 +102,10 @@ int main(int argc, char *argv[])
                         continue;
                 }
 
-                // Not a built in command
+                // Case: Not a built in command
                 // check if process exists in the different search paths
                 char path[10];
-                for (int i = 0 ; search_paths[i] != NULL; i++)
-                {
-                        printf("search_path item: %s\n", search_paths[i]);
-                }
-                printf("ARGS[0] BEFORE : %s\n", args[0]);
-                select_search_path(path, args[0]);         // finds suitable search path out of search_path and puts it in path, if not...
-                printf("ARGS[0] AFTER : %s\n", args[0]);
-
-                // strcat(path, args[0]);
-                printf("Selected Search Path: %s\n", path);
+                select_search_path(path, args[0]);                              // Finds suitable available search path
 
                 // Single child process for now.
                 pid_t process = fork();
@@ -134,11 +116,6 @@ int main(int argc, char *argv[])
                 else if (process == 0)
                 {
                         configure_redirection(args);
-
-                        // DEBUG!!
-                        FILE *f = fopen("debug.txt", "a");
-                        fprintf(f, "Debug child: path=%s\n", path);
-                        fclose(f);
 
                         // process, we have access to parsed input.
                         execv(path, args);
@@ -156,12 +133,10 @@ int main(int argc, char *argv[])
                 // Free mem
                 free_nested_arr(args);
 
-                // Universally, there should always be a newline after each command (batch mode and interactive mode)
+                // There should always be a newline after each command (batch mode and interactive mode)
                 printf("\n");
         }
-        
-        // Free global vars at the end
-        free(input);                            // free input
+        free(input);                            // Free input
 }
 
 void free_nested_arr(char** nested)
