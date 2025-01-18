@@ -27,7 +27,7 @@ void configure_redirection(char **args);
 #define MAXARGS 20      // ARGUMENTS PER LINE - SIZE: 20 * sizeof(char*) = 20 * 8 = 160 bytes (20 char*'s)
 #define MAXPATHS 10     // SEARCH_PATHS ARR SIZE - SIZE: 10 * sizeof(char*) = 10 * 8 = 80 bytes (10 char*'s)
 
-char* search_paths[MAXPATHS * sizeof(char*)];
+char* search_paths[MAXPATHS];
 
 int main(int argc, char *argv[])
 {
@@ -98,14 +98,13 @@ int main(int argc, char *argv[])
                 if (!strcmp("path", args[0]))
                 {
                         handle_path(args);
-                        free_nested_arr(args);
                         continue;
                 }
 
                 // Case: Not a built in command
-                // check if process exists in the different search paths
+                // Check if process exists in the different search paths
                 char path[10];
-                select_search_path(path, args[0]);                              // Finds suitable available search path
+                select_search_path(path, args[0]);                              // Finds suitable available search path for this program
 
                 // Single child process for now.
                 pid_t process = fork();
@@ -117,6 +116,8 @@ int main(int argc, char *argv[])
                 {
                         configure_redirection(args);
 
+                        
+
                         // process, we have access to parsed input.
                         execv(path, args);
                         // char *args[] = {"ls", "-l", NULL};
@@ -126,11 +127,10 @@ int main(int argc, char *argv[])
                         perror("Error executing command");
                         exit(1);
                 }
-
                 // parent waits for children
                 wait(NULL);
 
-                // Free mem
+                // Free args memory
                 free_nested_arr(args);
 
                 // There should always be a newline after each command (batch mode and interactive mode)
@@ -165,7 +165,6 @@ void null_terminate_input(char* parsed_input, char* raw_input)
 // generate_execv_args - parses and generates the args array for execv.
 // program_name - char pointer (string)
 // args - an array of char pointers (strings)
-
 void generate_execv_args(char* parsed_input, char** args)
 {
         // parse input in here and set those variables
@@ -175,16 +174,11 @@ void generate_execv_args(char* parsed_input, char** args)
         int count = 0;
         while ((token = strsep(&parsed_input, " ")) != NULL)    // each token is nul terminated
         {
-                // this position will set the arr[count] for first 2 as 8 byte pointer, 
-                // as soon as we arrive at the 3rd token, the args memory block is not enough, 
-                // so the function likely terminates
-                // When we write beyond the allocated memory (storing it in the third pointer spot),
-                // anything can happen to the entire args array because I am corrupting memory.
                 args[count] = malloc(strlen(token)+1);
                 strcpy(args[count], token);
                 count++;
         }
-        *(args+count) = NULL;
+        args[count] = NULL;
 }
 
 
@@ -201,8 +195,8 @@ void handle_path(char **args)
         while (*(args) != NULL)
         {
                 // TODO: Check if the path is valid
-                *(search_paths+count) = malloc(strlen(*(args)) +1);
-                strcpy(*(search_paths+count), *(args));
+                search_paths[count] = malloc(strlen(*(args)) +1);
+                strcpy(search_paths[count], *(args));
                 args++;
                 count++;
         }
@@ -215,8 +209,6 @@ void select_search_path(char *path, char* name)
 {
         int count = 0;
         char temp[100];
-        printf("SELECT SEARCH PATH FUNCTION\n");
-        printf("NAME: %s\n", name);
         while (search_paths[count] != NULL)
         {
                 strcpy(temp, search_paths[count]);
