@@ -15,6 +15,9 @@ void collapse_white_space_group(char *dest, char *input);
 // Built-in-command handlers
 void handle_cd(char **args);
 void handle_path(char **args);
+void handle_exit(char **args);
+
+// Finding the correct PATH dir
 void select_search_path(char *path, char* name);
 
 // freeing stuff
@@ -40,12 +43,6 @@ char* search_paths[MAXPATHS * sizeof(char*)];
 int main(int argc, char *argv[])
 {
         char* input = malloc(MAXLINE);
-
-        if (freopen("input.txt", "r", stdin) == NULL)
-        {
-                perror("error opening stdin");
-        }
-
         int batch_mode = 0;
 
         // Handle Batch mode
@@ -92,7 +89,7 @@ int main(int argc, char *argv[])
                 null_terminate_input(parsed_input, input);              // parse line
                 collapse_white_space_group(parsed_input, parsed_input);
                 
-                printf("PARSED INPUT! %s\n", parsed_input);
+                // printf("PARSED INPUT! %s\n", parsed_input);
 
                 // Check for parallel commands
                 
@@ -101,7 +98,7 @@ int main(int argc, char *argv[])
                 char **args = malloc(MAXARGS * sizeof(char*));  
                 generate_execv_args(parsed_input, args);
 
-                printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
+                // printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
 
                 // generated arguments that are cleanly separated
                 char** command_arg_list[MAX_PARALLEL_COMMANDS];
@@ -112,22 +109,23 @@ int main(int argc, char *argv[])
                 for (int i = 0; command_arg_list[i] != NULL; i++)
                 {
                         char **single_command = command_arg_list[i];
-                        printf("COMMAND SELECTION %s\n", single_command[0]);
+                        // printf("COMMAND SELECTION %s\n", single_command[0]);
 
                         // Check if built in command (exit, cd, path)
-                        if (!strcmp("exit", single_command[0]))
+                        // TODO: handle these in the child process
+                        if (strcmp("exit", single_command[0]) == 0)
                         {
-                                exit(0);
+                                handle_exit(single_command);
+                                continue;
                         }
-                        if (!strcmp("cd", single_command[0]))
+                        if (strcmp("cd", single_command[0]) == 0)
                         {
                                 handle_cd(single_command);
                                 continue;
                         }
-                        if (!strcmp("path", single_command[0]))
+                        if (strcmp("path", single_command[0]) == 0)
                         {
                                 handle_path(single_command);
-                                free_nested_arr(single_command);
                                 continue;
                         }
 
@@ -139,11 +137,16 @@ int main(int argc, char *argv[])
                         //         printf("search_path item: %s\n", search_paths[i]);
                         // }
                         // printf("ARGS[0] BEFORE : %s\n", single_command[0]);
+
+                        // TODO: HANDLE THE CASE WHERE ITS NOT A COMMAND BUT A SHELL SCRIPT
                         select_search_path(path, single_command[0]);         // finds suitable search path out of search_path and puts it in path, if not...
+                        
                         // printf("ARGS[0] AFTER : %s\n", single_command[0]);
+                        // printf("ARGS[1] AFTER : %s\n", single_command[1]);
+
 
                         // strcat(path, args[0]);
-                        printf("Selected Search Path: %s\n", path);
+                        // printf("Selected Search Path: %s\n", path);
 
                         // Single child process for now.
                         pid_t process = fork();
@@ -178,21 +181,20 @@ int main(int argc, char *argv[])
                                 // execv("/bin/ls", args);
                                 
                                 // if execv failed
-                                perror("Error executing command");
-                                exit(1);
+                                fprintf(stderr, "An error has occurred\n");
+                                exit(1);                // Exit the child process
                         }
                 }
 
-
                 // parent waits for children
-                wait(NULL);
+                while (wait(NULL) > 0);
 
                 // Free mem
                 free_nested_arr(args);
                 free(args);
 
                 // Universally, there should always be a newline after each command (batch mode and interactive mode)
-                printf("\n");
+                // printf("\n");
         }
         
         // Free global vars at the end
@@ -220,7 +222,7 @@ int configure_parallel(char ***arg_list, char **args)
                         arg_list[commands_count] = args+index;
                         set_pointer = 0;
                 }
-                else if (!strcmp("&", args[index]))      // yes &
+                else if (strcmp("&", args[index]) == 0)      // yes &
                 {
                         args[index] = NULL;
                         set_pointer = 1;
@@ -287,7 +289,25 @@ void generate_execv_args(char* parsed_input, char** args)
 // BUILT IN COMMAND HANDLERS
 void handle_cd(char **args)
 {
-        chdir(*(args+1));
+        int res = chdir(*(args+1));
+        if (res == -1)
+        {
+                fprintf(stderr, "An error has occurred\n");
+                return;
+        }
+}
+
+void handle_exit(char **args)
+{
+        // since we got rid of any spaces, any existence of non space character must be at the second arg
+        char *second_arg = args[1];
+
+        if (second_arg != NULL)
+        {
+                fprintf(stderr, "An error has occurred\n");
+                return;
+        }
+        exit(0);
 }
 
 void handle_path(char **args)
@@ -297,12 +317,19 @@ void handle_path(char **args)
         while (*(args) != NULL)
         {
                 search_paths[count] = malloc(strlen(*(args)) + 3);
+                if (search_paths[count] == NULL)
+                {
+                        fprintf(stderr, "An error has occurred\n");
+                        return;
+                }
                 strcpy(search_paths[count], *(args));
                 strcat(search_paths[count], "/");
+                
+
                 args++;
                 count++;
         }
-        *(search_paths+count) = NULL;
+        search_paths[count] = NULL;
         // Note: empty search_paths[i] are 0x0 naturally
 }
 
@@ -310,19 +337,25 @@ void select_search_path(char *path, char* name)
 {
         int count = 0;
         char temp[100];
-        printf("SELECT SEARCH PATH FUNCTION\n");
-        printf("NAME: %s\n", name);
+        // printf("SELECT SEARCH PATH FUNCTION\n");
+        // printf("NAME: %s\n", name);
         while (search_paths[count] != NULL)
         {
                 strcpy(temp, search_paths[count]);
                 strcat(temp, name);
-                if (!access(temp, X_OK))
+                
+                // printf("complete path searching for: %s\n", temp);
+                // char cwd[1024];
+                // getcwd(cwd, sizeof(cwd));
+                // printf("Current working directory: %s\n", cwd);
+                if (access(temp, X_OK) == 0)
                 {
                         strcpy(path, temp);
                         return;
                 }
                 count++;
         }
+
 }
 
 // configure_redirection - check for redirection operators and modify the arg list to fit
@@ -340,7 +373,7 @@ void configure_redirection(char **args)
         {
                 return;
         }
-        if (*(args+count+1) == NULL || !strcmp(*(args+count+1), ">"))           // Case: doesn't exist any valid file/directory after the redirection character
+        if (*(args+count+1) == NULL || strcmp(*(args+count+1) == 0, ">"))           // Case: doesn't exist any valid file/directory after the redirection character
         {
                 fprintf(stderr, "Invalid token after redirection character");
                 exit(1);                                                        // Exits this specific process, keeps looking for the next command though.
