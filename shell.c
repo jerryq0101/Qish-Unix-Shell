@@ -23,9 +23,12 @@ void free_nested_arr(char** nested);
 // Redirection
 void configure_redirection(char **args);
 
+// Makes life easier
+void add_bin_path_automatically();
+
 #define MAXLINE 100
-#define MAXARGS 20
-#define MAXPATHS 10
+#define MAXARGS 100
+#define MAXPATHS 100
 
 char* search_paths[MAXPATHS * sizeof(char*)];
 
@@ -63,6 +66,8 @@ int main(int argc, char *argv[])
                 close(fd);
         }
         
+        add_bin_path_automatically();
+
         while (1)              // Main While loop
         {
                 if (!batch_mode)        // Interactive mode prompt
@@ -133,7 +138,19 @@ int main(int argc, char *argv[])
                 }
                 else if (process == 0)
                 {
+                        // Print before redirection
+                        printf("Child start - path=%s\n", path);
+                        for (int i = 0; args[i] != NULL; i++) {
+                                printf("Child start - args[%d]=%s\n", i, args[i]);
+                        }
+
                         configure_redirection(args);
+
+                        // Print after redirection
+                        printf("Child after redirection - path=%s\n", path);
+                        for (int i = 0; args[i] != NULL; i++) {
+                                printf("Child after redirection - args[%d]=%s\n", i, args[i]);
+                        }
 
                         // DEBUG!!
                         FILE *f = fopen("debug.txt", "a");
@@ -154,13 +171,16 @@ int main(int argc, char *argv[])
                 wait(NULL);
 
                 // Free mem
+                // TODO: not sure why this breaks when I free args.
                 free_nested_arr(args);
+                free(args);
 
                 // Universally, there should always be a newline after each command (batch mode and interactive mode)
                 printf("\n");
         }
         
         // Free global vars at the end
+        free_nested_arr(search_paths);
         free(input);                            // free input
 }
 
@@ -171,7 +191,6 @@ void free_nested_arr(char** nested)
         {
                 free(nested[i]);
         }
-        free(nested);
 }
 
 // null_terminate_input - replaces the \n with \0 from raw input
@@ -326,4 +345,16 @@ void collapse_white_space_group(char *dest, char *input)
         {
                 dest[insertion_index] = '\0';
         }
+}
+
+
+void add_bin_path_automatically()
+{
+        search_paths[0] = malloc(6);
+        strcpy(search_paths[0], "/bin/");
+        search_paths[1] = malloc(9);
+        strcpy(search_paths[1], "/usr/bin/");
+        search_paths[2] = malloc(7);
+        strcpy(search_paths[2], "/sbin/");
+        search_paths[3] = NULL;
 }
