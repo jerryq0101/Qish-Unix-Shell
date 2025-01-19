@@ -23,6 +23,9 @@ void free_nested_arr(char** nested);
 // Redirection
 void configure_redirection(char **args);
 
+// Parallel Command
+int configure_parallel(char ***arg_list, char **args);
+
 // Makes life easier
 void add_bin_path_automatically();
 
@@ -30,6 +33,7 @@ void add_bin_path_automatically();
 #define MAXARGS 100
 #define MAXPATHS 100
 #define CONCAT_PATH_MAX 100
+#define MAX_PARALLEL_COMMANDS 100
 
 char* search_paths[MAXPATHS * sizeof(char*)];
 
@@ -83,13 +87,9 @@ int main(int argc, char *argv[])
                         exit(0);
                 }
                 
-
                 // TODO: INPUT PARSING FOR > and & operators (no need space)
                 char parsed_input[MAXLINE];
-
                 null_terminate_input(parsed_input, input);              // parse line
-
-                // Get rid of groups of white spaces, until the \n symbol
                 collapse_white_space_group(parsed_input, parsed_input);
                 
                 printf("PARSED INPUT! %s\n", parsed_input);
@@ -101,78 +101,88 @@ int main(int argc, char *argv[])
                 char **args = malloc(MAXARGS * sizeof(char*));  
                 generate_execv_args(parsed_input, args);
 
-                
-                
-
                 printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
 
-                // Check if built in command (exit, cd, path)
-                if (!strcmp("exit", args[0]))
-                {
-                        exit(0);
-                }
-                if (!strcmp("cd", args[0]))
-                {
-                        handle_cd(args);
-                        continue;
-                }
-                if (!strcmp("path", args[0]))
-                {
-                        handle_path(args);
-                        free_nested_arr(args);
-                        continue;
-                }
+                // generated arguments that are cleanly separated
+                char** command_arg_list[MAX_PARALLEL_COMMANDS];
+                int parallel_commands = configure_parallel(command_arg_list, args);
+                // configure_parallel modifies the command arg list s.t.
+                // there is an char **args like sequence at each memory slot until NULL ptr
 
-                // Not a built in command
-                // check if process exists in the different search paths
-                char path[CONCAT_PATH_MAX];                                     // 100 characters MAX
-                for (int i = 0 ; search_paths[i] != NULL; i++)
+                for (int i = 0; command_arg_list[i] != NULL; i++)
                 {
-                        printf("search_path item: %s\n", search_paths[i]);
-                }
-                printf("ARGS[0] BEFORE : %s\n", args[0]);
-                select_search_path(path, args[0]);         // finds suitable search path out of search_path and puts it in path, if not...
-                printf("ARGS[0] AFTER : %s\n", args[0]);
+                        char **single_command = command_arg_list[i];
+                        printf("COMMAND SELECTION %s\n", single_command[0]);
 
-                // strcat(path, args[0]);
-                printf("Selected Search Path: %s\n", path);
-
-                // Single child process for now.
-                pid_t process = fork();
-                if (process < 0)
-                {
-                        printf("fork failed\n");
-                }
-                else if (process == 0)
-                {
-                        // Print before redirection
-                        printf("Child start - path=%s\n", path);
-                        for (int i = 0; args[i] != NULL; i++) {
-                                printf("Child start - args[%d]=%s\n", i, args[i]);
+                        // Check if built in command (exit, cd, path)
+                        if (!strcmp("exit", single_command[0]))
+                        {
+                                exit(0);
+                        }
+                        if (!strcmp("cd", single_command[0]))
+                        {
+                                handle_cd(single_command);
+                                continue;
+                        }
+                        if (!strcmp("path", single_command[0]))
+                        {
+                                handle_path(single_command);
+                                free_nested_arr(single_command);
+                                continue;
                         }
 
-                        configure_redirection(args);
+                        // Not a built in command
+                        // check if process exists in the different search paths
+                        char path[CONCAT_PATH_MAX];                                     // 100 characters MAX
+                        // for (int i = 0 ; search_paths[i] != NULL; i++)
+                        // {
+                        //         printf("search_path item: %s\n", search_paths[i]);
+                        // }
+                        // printf("ARGS[0] BEFORE : %s\n", single_command[0]);
+                        select_search_path(path, single_command[0]);         // finds suitable search path out of search_path and puts it in path, if not...
+                        // printf("ARGS[0] AFTER : %s\n", single_command[0]);
 
-                        // Print after redirection
-                        printf("Child after redirection - path=%s\n", path);
-                        for (int i = 0; args[i] != NULL; i++) {
-                                printf("Child after redirection - args[%d]=%s\n", i, args[i]);
+                        // strcat(path, args[0]);
+                        printf("Selected Search Path: %s\n", path);
+
+                        // Single child process for now.
+                        pid_t process = fork();
+                        if (process < 0)
+                        {
+                                printf("fork failed\n");
                         }
+                        else if (process == 0)
+                        {
+                                // // Print before redirection
+                                // printf("Child start - path=%s\n", path);
+                                // for (int i = 0; single_command[i] != NULL; i++) {
+                                //         printf("Child start - args[%d]=%s\n", i, single_command[i]);
+                                // }
 
-                        // DEBUG!!
-                        FILE *f = fopen("debug.txt", "a");
-                        fprintf(f, "Debug child: path=%s\n", path);
-                        fclose(f);
+                                configure_redirection(single_command);
 
-                        // process, we have access to parsed input.
-                        execv(path, args);
-                        // char *args[] = {"ls", "-l", NULL};
-                        // execv("/bin/ls", args);
-                        
-                        // if execv failed
-                        perror("Error executing command");
-                        exit(1);
+                                // // Print after redirection
+                                // printf("Child after redirection - path=%s\n", path);
+                                // for (int i = 0; single_command[i] != NULL; i++) {
+                                //         printf("Child after redirection - args[%d]=%s\n", i, single_command[i]);
+                                // }
+
+                                // // DEBUG!!
+                                // FILE *f = fopen("debug.txt", "a");
+                                // fprintf(f, "Debug child: path=%s\n", path);
+                                // fclose(f);
+
+                                // process, we have access to parsed input.
+                                execv(path, single_command);
+                                // char *args[] = {"ls", "-l", NULL};
+                                // execv("/bin/ls", args);
+                                
+                                // if execv failed
+                                perror("Error executing command");
+                                exit(1);
+                        }
                 }
+
 
                 // parent waits for children
                 wait(NULL);
@@ -189,6 +199,39 @@ int main(int argc, char *argv[])
         free_nested_arr(search_paths);
         free(input);                            // free input
 }
+
+int configure_parallel(char ***arg_list, char **args)
+{
+        // Strategy;
+        // go through the args allocated storage,
+        // don't allocate anymore for arg_list
+        // when we find a &, set that to NULL, 
+        // and continue on the next element
+        int commands_count = 0;
+        int index = 0;
+        int set_pointer = 1;
+
+        // assume args terminates by the null pointer
+        while (args[index] != NULL)
+        {
+                if (set_pointer)                        // not &
+                {
+                        // set the command arglist to be the beginning of each command
+                        arg_list[commands_count] = args+index;
+                        set_pointer = 0;
+                }
+                else if (!strcmp("&", args[index]))      // yes &
+                {
+                        args[index] = NULL;
+                        set_pointer = 1;
+                        commands_count++;
+                }
+                index++;
+        }
+
+        return commands_count - 1;
+}
+
 
 void free_nested_arr(char** nested)
 {
@@ -362,3 +405,4 @@ void add_bin_path_automatically()
         strcpy(search_paths[2], "/sbin/");
         search_paths[3] = NULL;
 }
+

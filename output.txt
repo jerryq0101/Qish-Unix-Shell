@@ -1,4 +1,9 @@
-Child after redirection - path=/usr/bin/wc
-Child after redirection - args[0]=wc
-Child after redirection - args[1]=output.txt
-       3      15     125 output.txt
+total 120
+drwxr-xr-x  2 jerryqi  staff     64 18 Jan 22:08 HEHE
+drwxr-xr-x  2 jerryqi  staff     64 18 Jan 20:02 LMAO
+-rw-r--r--  1 jerryqi  staff   3158 18 Jan 21:51 debug.txt
+-rw-r--r--  1 jerryqi  staff     55 18 Jan 22:00 input.txt
+-rw-r--r--  1 jerryqi  staff      0 18 Jan 22:09 output.txt
+-rwxr-xr-x  1 jerryqi  staff  36184 18 Jan 22:08 shell
+-rw-r--r--  1 jerryqi  staff  14621 18 Jan 22:08 shell.c
+drwxr-xr-x  3 jerryqi  staff     96 18 Jan 19:27 shell.dSYM
