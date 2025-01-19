@@ -1,0 +1,18 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/jerryqi/Documents/Github/UNIX-Shell/shell'
+relocations:
+  - { offsetInCU: 0x26, offset: 0x26, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x10000312C, symSize: 0x3F0 }
+  - { offsetInCU: 0x4D, offset: 0x4D, size: 0x8, addend: 0x0, symName: _search_paths, symBinAddr: 0x100008000, symSize: 0x0 }
+  - { offsetInCU: 0x6F, offset: 0x6F, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x10000312C, symSize: 0x3F0 }
+  - { offsetInCU: 0x18B, offset: 0x18B, size: 0x8, addend: 0x0, symName: _null_terminate_input, symObjAddr: 0x3F0, symBinAddr: 0x10000351C, symSize: 0x78 }
+  - { offsetInCU: 0x1CB, offset: 0x1CB, size: 0x8, addend: 0x0, symName: _collapse_white_space_group, symObjAddr: 0x468, symBinAddr: 0x100003594, symSize: 0x14C }
+  - { offsetInCU: 0x21E, offset: 0x21E, size: 0x8, addend: 0x0, symName: _generate_execv_args, symObjAddr: 0x5B4, symBinAddr: 0x1000036E0, symSize: 0xA4 }
+  - { offsetInCU: 0x271, offset: 0x271, size: 0x8, addend: 0x0, symName: _configure_parallel, symObjAddr: 0x658, symBinAddr: 0x100003784, symSize: 0xF0 }
+  - { offsetInCU: 0x2D1, offset: 0x2D1, size: 0x8, addend: 0x0, symName: _handle_cd, symObjAddr: 0x748, symBinAddr: 0x100003874, symSize: 0x28 }
+  - { offsetInCU: 0x2F7, offset: 0x2F7, size: 0x8, addend: 0x0, symName: _handle_path, symObjAddr: 0x770, symBinAddr: 0x10000389C, symSize: 0xD8 }
+  - { offsetInCU: 0x32C, offset: 0x32C, size: 0x8, addend: 0x0, symName: _free_nested_arr, symObjAddr: 0x848, symBinAddr: 0x100003974, symSize: 0x84 }
+  - { offsetInCU: 0x36C, offset: 0x36C, size: 0x8, addend: 0x0, symName: _select_search_path, symObjAddr: 0x8CC, symBinAddr: 0x1000039F8, symSize: 0x114 }
+  - { offsetInCU: 0x3BF, offset: 0x3BF, size: 0x8, addend: 0x0, symName: _configure_redirection, symObjAddr: 0x9E0, symBinAddr: 0x100003B0C, symSize: 0x168 }
+  - { offsetInCU: 0x403, offset: 0x403, size: 0x8, addend: 0x0, symName: _add_bin_path_automatically, symObjAddr: 0xB48, symBinAddr: 0x100003C74, symSize: 0x9C }
+...
