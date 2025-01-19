@@ -23,9 +23,17 @@ void free_nested_arr(char** nested);
 // Redirection
 void configure_redirection(char **args);
 
-#define MAXLINE 100     // MAXLINE CHARACTERS - SIZE: 100 bytes
-#define MAXARGS 20      // ARGUMENTS PER LINE - SIZE: 20 * sizeof(char*) = 20 * 8 = 160 bytes (20 char*'s)
-#define MAXPATHS 10     // SEARCH_PATHS ARR SIZE - SIZE: 10 * sizeof(char*) = 10 * 8 = 80 bytes (10 char*'s)
+// Parallel Command
+int configure_parallel(char ***arg_list, char **args);
+
+// Makes life easier
+void add_bin_path_automatically();
+
+#define MAXLINE 100
+#define MAXARGS 100
+#define MAXPATHS 100
+#define CONCAT_PATH_MAX 100
+#define MAX_PARALLEL_COMMANDS 100
 
 char* search_paths[MAXPATHS];
 
@@ -33,10 +41,10 @@ int main(int argc, char *argv[])
 {
         char* input = malloc(MAXLINE);
 
-        // if (freopen("input.txt", "r", stdin) == NULL)
-        // {
-        //         perror("error opening stdin");
-        // }
+        if (freopen("input.txt", "r", stdin) == NULL)
+        {
+                perror("error opening stdin");
+        }
 
         int batch_mode = 0;
 
@@ -63,7 +71,7 @@ int main(int argc, char *argv[])
                 close(fd);
         }
         
-        while (1)                                                               // Main While loop
+        while (1)              // Main While loop
         {
                 if (!batch_mode)                                                // Interactive mode prompt
                 {
@@ -77,15 +85,24 @@ int main(int argc, char *argv[])
                         exit(0);
                 }
                 
+                // TODO: INPUT PARSING FOR > and & operators (no need space)
                 char parsed_input[MAXLINE];
-                null_terminate_input(parsed_input, input);                      // Format input
-                collapse_white_space_group(parsed_input, parsed_input);         // Collapse White space into one, and remove last space
+
+                null_terminate_input(parsed_input, input);              // parse line
+
+                // Get rid of groups of white spaces, until the \n symbol
+                collapse_white_space_group(parsed_input, parsed_input);
+                
+                printf("PARSED INPUT! %s\n", parsed_input);
                 
                 // Generate execv arguments / redirection arguments or parallel commands
                 char **args = malloc(MAXARGS * sizeof(char*));  
                 generate_execv_args(parsed_input, args);
 
-                // Case: Built in command (exit, cd, path)
+                printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
+
+
+                // Check if built in command (exit, cd, path)
                 if (!strcmp("exit", args[0]))
                 {
                         exit(0);
@@ -98,13 +115,23 @@ int main(int argc, char *argv[])
                 if (!strcmp("path", args[0]))
                 {
                         handle_path(args);
+                        free_nested_arr(args);
                         continue;
                 }
 
-                // Case: Not a built in command
-                // Check if process exists in the different search paths
+                // Not a built in command
+                // check if process exists in the different search paths
                 char path[10];
-                select_search_path(path, args[0]);                              // Finds suitable available search path for this program
+                for (int i = 0 ; search_paths[i] != NULL; i++)
+                {
+                        printf("search_path item: %s\n", search_paths[i]);
+                }
+                printf("ARGS[0] BEFORE : %s\n", args[0]);
+                select_search_path(path, args[0]);         // finds suitable search path out of search_path and puts it in path, if not...
+                printf("ARGS[0] AFTER : %s\n", args[0]);
+
+                // strcat(path, args[0]);
+                printf("Selected Search Path: %s\n", path);
 
                 // Single child process for now.
                 pid_t process = fork();
@@ -116,7 +143,10 @@ int main(int argc, char *argv[])
                 {
                         configure_redirection(args);
 
-                        
+                        // DEBUG!!
+                        FILE *f = fopen("debug.txt", "a");
+                        fprintf(f, "Debug child: path=%s\n", path);
+                        fclose(f);
 
                         // process, we have access to parsed input.
                         execv(path, args);
@@ -127,26 +157,65 @@ int main(int argc, char *argv[])
                         perror("Error executing command");
                         exit(1);
                 }
+
                 // parent waits for children
                 wait(NULL);
 
                 // Free args memory
                 free_nested_arr(args);
+                free(args);
 
                 // There should always be a newline after each command (batch mode and interactive mode)
                 printf("\n");
         }
-        free(input);                            // Free input
+        
+        // Free global vars at the end
+        free(input);                            // free input
 }
+
+int configure_parallel(char ***arg_list, char **args)
+{
+        // Strategy;
+        // go through the args allocated storage,
+        // don't allocate anymore for arg_list
+        // when we find a &, set that to NULL, 
+        // and continue on the next element
+        int commands_count = 0;
+        int index = 0;
+        int set_pointer = 1;
+
+        // assume args terminates by the null pointer
+        while (args[index] != NULL)
+        {
+                if (set_pointer)                        // not &
+                {
+                        // set the command arglist to be the beginning of each command
+                        arg_list[commands_count] = args+index;
+                        set_pointer = 0;
+                }
+                else if (!strcmp("&", args[index]))      // yes &
+                {
+                        args[index] = NULL;
+                        set_pointer = 1;
+                        commands_count++;
+                }
+                index++;
+        }
+
+        return commands_count - 1;
+}
+
 
 void free_nested_arr(char** nested)
 {
         // free arguments' memory
         for (int i = 0; nested[i] != NULL; i++)
         {
-                free(nested[i]);
+                if (nested[i] != NULL)
+                {
+                        free(nested[i]);
+                }
         }
-        free(nested);
 }
 
 // null_terminate_input - replaces the \n with \0 from raw input
@@ -195,14 +264,13 @@ void handle_path(char **args)
         while (*(args) != NULL)
         {
                 // TODO: Check if the path is valid
-                search_paths[count] = malloc(strlen(*(args)) +1);
-                strcpy(search_paths[count], *(args));
+                *(search_paths+count) = malloc(strlen(*(args)) +1);
+                strcpy(*(search_paths+count), *(args));
                 args++;
                 count++;
         }
         *(search_paths+count) = NULL;
         // Note: empty search_paths[i] are 0x0 naturally
-        // TODO: ENFORCE ^
 }
 
 void select_search_path(char *path, char* name)
@@ -242,9 +310,6 @@ void configure_redirection(char **args)
                 fprintf(stderr, "Invalid token after redirection character");
                 exit(1);                                                        // Exits this specific process, keeps looking for the next command though.
         }
-
-        // DON"T HAVE TO CHECK THE COMMAND and NAME validity, just have to check that characters exist in the format
-        // TODO: potentially more error checking cases
 
         // Delete redirection operator by null termination
         *(args+count) = NULL;
@@ -294,3 +359,15 @@ void collapse_white_space_group(char *dest, char *input)
                 dest[insertion_index] = '\0';
         }
 }
+
+void add_bin_path_automatically()
+{
+        search_paths[0] = malloc(6);
+        strcpy(search_paths[0], "/bin/");
+        search_paths[1] = malloc(9);
+        strcpy(search_paths[1], "/usr/bin/");
+        search_paths[2] = malloc(7);
+        strcpy(search_paths[2], "/sbin/");
+        search_paths[3] = NULL;
+}
+

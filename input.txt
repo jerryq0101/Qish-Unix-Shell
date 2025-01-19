@@ -1,2 +1,1 @@
-path            /bin/ /usr/bin/         
-ls      -l      > output.txt
+ls       -l     >  output.txt      &        mkdir HEHE
