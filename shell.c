@@ -29,6 +29,7 @@ void add_bin_path_automatically();
 #define MAXLINE 100
 #define MAXARGS 100
 #define MAXPATHS 100
+#define CONCAT_PATH_MAX 100
 
 char* search_paths[MAXPATHS * sizeof(char*)];
 
@@ -118,7 +119,7 @@ int main(int argc, char *argv[])
 
                 // Not a built in command
                 // check if process exists in the different search paths
-                char path[10];
+                char path[CONCAT_PATH_MAX];                                     // 100 characters MAX
                 for (int i = 0 ; search_paths[i] != NULL; i++)
                 {
                         printf("search_path item: %s\n", search_paths[i]);
@@ -189,7 +190,10 @@ void free_nested_arr(char** nested)
         // free arguments' memory
         for (int i = 0; nested[i] != NULL; i++)
         {
-                free(nested[i]);
+                if (nested[i] != NULL)
+                {
+                        free(nested[i]);
+                }
         }
 }
 
@@ -346,7 +350,6 @@ void collapse_white_space_group(char *dest, char *input)
                 dest[insertion_index] = '\0';
         }
 }
-
 
 void add_bin_path_automatically()
 {
