@@ -8,7 +8,7 @@
 #include <ctype.h>
 
 // Formatting
-void generate_execv_args(char* parsed_input, char** args);
+void parse_command_line(char* parsed_input, char** args);
 void null_terminate_input(char* parsed_input, char* raw_input);
 void collapse_white_space_group(char *dest, char *input);
 
@@ -38,24 +38,26 @@ void add_bin_path_automatically();
 #define CONCAT_PATH_MAX 100
 #define MAX_PARALLEL_COMMANDS 100
 
+#define ERROR_MESSAGE "An error has occurred\n"
+
 char* search_paths[MAXPATHS * sizeof(char*)];
 
 int main(int argc, char *argv[])
 {
         char* input = malloc(MAXLINE);
+        if (input == NULL)
+        {
+                fprintf(stderr, ERROR_MESSAGE);
+                exit(1);
+        }
         int batch_mode = 0;
-
-        // if (freopen("input.txt", "r", stdin) == NULL)
-        // {
-        //         perror("error opening stdin");
-        // }
 
         // Handle Batch mode
         if (argc > 1)
         {
                 if (argc > 2)   // Catching case where there is many file inputs
                 {
-                        fprintf(stderr, "An error has occurred\n");
+                        fprintf(stderr, ERROR_MESSAGE);
                         exit(1);
                 }
 
@@ -66,7 +68,7 @@ int main(int argc, char *argv[])
                 int fd = open(argv[1], O_RDONLY);
                 if ((fd = open(argv[1], O_RDONLY)) == -1)
                 {
-                        fprintf(stderr, "An error has occurred\n");
+                        fprintf(stderr, ERROR_MESSAGE);
                         exit(1);
                 }
                 dup2(fd, STDIN_FILENO);
@@ -75,7 +77,7 @@ int main(int argc, char *argv[])
         
         add_bin_path_automatically();
 
-        while (1)              // Main While loop
+        while (1)                       // Main While loop
         {
                 if (!batch_mode)        // Interactive mode prompt
                 {
@@ -101,7 +103,12 @@ int main(int argc, char *argv[])
                 // Generate execv arguments / redirection arguments or parallel commands
                 // SIZE: 20 * sizeof(char*) = 20 * 8 = 160 (20 strings vs 20 bytes)
                 char **args = malloc(MAXARGS * sizeof(char*));  
-                generate_execv_args(parsed_input, args);
+                if (args == NULL)
+                {
+                        fprintf(stderr, ERROR_MESSAGE);
+                        exit(1);
+                }
+                parse_command_line(parsed_input, args);
 
                 // printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
 
@@ -187,7 +194,7 @@ int main(int argc, char *argv[])
                                 // execv("/bin/ls", args);
                                 
                                 // if execv failed
-                                fprintf(stderr, "An error has occurred\n");
+                                fprintf(stderr, ERROR_MESSAGE);
                                 exit(1);                // Exit the child process
                         }
                 }
@@ -205,7 +212,7 @@ int main(int argc, char *argv[])
         
         // Free global vars at the end
         free_nested_arr(search_paths);
-        free(input);                            // free input
+        free(input);
 }
 
 
@@ -288,7 +295,7 @@ void null_terminate_input(char* parsed_input, char* raw_input)
 // parses arguments from null terminated char arr, puts them into array of strings
 // Also handles the > not having a space with it cases
 // TODO: also needs to handle & not having spaces around it
-void generate_execv_args(char* parsed_input, char** args)
+void parse_command_line(char* parsed_input, char** args)
 {
         // parse input in here and set those variables
         // btw: args need to be NULL terminated
@@ -369,14 +376,13 @@ void generate_execv_args(char* parsed_input, char** args)
         args[arg_count] = NULL;
 }
 
-
 // BUILT IN COMMAND HANDLERS
 void handle_cd(char **args)
 {
         int res = chdir(*(args+1));
         if (res == -1)
         {
-                fprintf(stderr, "An error has occurred\n");
+                fprintf(stderr, ERROR_MESSAGE);
                 return;
         }
 }
@@ -388,7 +394,7 @@ void handle_exit(char **args)
 
         if (second_arg != NULL)
         {
-                fprintf(stderr, "An error has occurred\n");
+                fprintf(stderr, ERROR_MESSAGE);
                 return;
         }
         exit(0);
@@ -404,7 +410,7 @@ void handle_path(char **args)
                 search_paths[count] = malloc(strlen(args[index]) + 3);
                 if (search_paths[count] == NULL)
                 {
-                        fprintf(stderr, "An error has occurred\n");
+                        fprintf(stderr, ERROR_MESSAGE);
                         return;
                 }
                 strcpy(search_paths[count], args[index]);
@@ -454,18 +460,18 @@ void configure_redirection(char **args)
                 count++;
         }
         
-        if (args[count] == NULL)                                             // Case: no redirection operators
+        if (args[count] == NULL)                                                // Case: no redirection operators
         {
                 return;
         }
         if (args[count+1] == NULL || strcmp(args[count+1], ">") == 0)           // Case: doesn't exist any valid file/directory after the redirection character
         {
-                fprintf(stderr, "An error has occurred\n");
+                fprintf(stderr, ERROR_MESSAGE);
                 exit(1);                                                        // Exits this specific process, keeps looking for the next command though.
         }
         if (args[count+1] != NULL && args[count+2] != NULL)                     // check for multiple redirection operators / files to the right
         {
-                fprintf(stderr, "An error has occurred\n");
+                fprintf(stderr, ERROR_MESSAGE);
                 exit(1);
         }
         
@@ -521,10 +527,24 @@ void collapse_white_space_group(char *dest, char *input)
 void add_bin_path_automatically()
 {
         search_paths[0] = malloc(6);
+        if (search_paths[0] == NULL) {
+                fprintf(stderr, ERROR_MESSAGE);
+                exit(1);
+        }
         strcpy(search_paths[0], "/bin/");
+        
         search_paths[1] = malloc(9);
+        if (search_paths[1] == NULL) {
+                fprintf(stderr, ERROR_MESSAGE);
+                exit(1);
+        }
         strcpy(search_paths[1], "/usr/bin/");
+        
         search_paths[2] = malloc(7);
+        if (search_paths[2] == NULL) {
+                fprintf(stderr, ERROR_MESSAGE);
+                exit(1);
+        }
         strcpy(search_paths[2], "/sbin/");
         search_paths[3] = NULL;
 }
