@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
         char* input = malloc(MAXLINE);
         if (input == NULL)
         {
-                fprintf(stderr, ERROR_MESSAGE);
+                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                 exit(1);
         }
         int batch_mode = 0;
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
         {
                 if (argc > 2)   // Catching case where there is many file inputs
                 {
-                        fprintf(stderr, ERROR_MESSAGE);
+                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                         exit(1);
                 }
 
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
                 int fd = open(argv[1], O_RDONLY);
                 if ((fd = open(argv[1], O_RDONLY)) == -1)
                 {
-                        fprintf(stderr, ERROR_MESSAGE);
+                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                         exit(1);
                 }
                 dup2(fd, STDIN_FILENO);
@@ -91,39 +91,28 @@ int main(int argc, char *argv[])
                         exit(0);
                 }
                 
-                // TODO: INPUT PARSING FOR > and & operators (no need space)
                 char parsed_input[MAXLINE];
                 null_terminate_input(parsed_input, input);              // parse line
                 collapse_white_space_group(parsed_input, parsed_input);
-                
-                // printf("PARSED INPUT! %s\n", parsed_input);
 
-                // Check for parallel commands
-                
-                // Generate execv arguments / redirection arguments or parallel commands
+                // Generate arguments across the line
                 // SIZE: 20 * sizeof(char*) = 20 * 8 = 160 (20 strings vs 20 bytes)
                 char **args = malloc(MAXARGS * sizeof(char*));  
                 if (args == NULL)
                 {
-                        fprintf(stderr, ERROR_MESSAGE);
+                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                         exit(1);
                 }
                 parse_command_line(parsed_input, args);
 
-                // printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
-
-                // generated arguments that are cleanly separated
+                // Check for parallel commands
                 char** command_arg_list[MAX_PARALLEL_COMMANDS] = {0};
                 int parallel_commands = configure_parallel(command_arg_list, args);
-                // configure_parallel modifies the command arg list s.t.
-                // there is an char **args like sequence at each memory slot until NULL ptr
 
                 for (int i = 0; command_arg_list[i] != NULL; i++)
                 {
                         char **single_command = command_arg_list[i];
-                        // printf("COMMAND SELECTION %s\n", single_command[0]);
 
-                        // TODO: put all of this inside of the child process
                         // Check if built in command (exit, cd, path)
                         if (strcmp("exit", single_command[0]) == 0)
                         {
@@ -144,22 +133,8 @@ int main(int argc, char *argv[])
                         // Not a built in command
                         // check if process exists in the different search paths
                         char path[CONCAT_PATH_MAX] = {0};                                     // 100 characters MAX
-                        // for (int i = 0 ; search_paths[i] != NULL; i++)
-                        // {
-                        //         printf("search_path item: %s\n", search_paths[i]);
-                        // }
-                        // printf("ARGS[0] BEFORE : %s\n", single_command[0]);
-
-
-                        select_search_path(path, single_command[0]);         // finds suitable search path out of search_path and puts it in path, if not...
+                        select_search_path(path, single_command[0]);         // finds suitable search path out of search_path
                         
-                        // printf("ARGS[0] AFTER : %s\n", single_command[0]);
-                        // printf("ARGS[1] AFTER : %s\n", single_command[1]);
-
-
-                        // strcat(path, args[0]);
-                        // printf("Selected Search Path: %s\n", path);
-
                         // Single child process for now.
                         pid_t process = fork();
                         if (process < 0)
@@ -174,42 +149,23 @@ int main(int argc, char *argv[])
                                 //         printf("Child start - args[%d]=%s\n", i, single_command[i]);
                                 // }
 
-                                configure_redirection(single_command);
-
-                                // // Print after redirection
-                                // printf("Child after redirection - path=%s\n", path);
-                                // for (int i = 0; single_command[i] != NULL; i++) {
-                                //         printf("Child after redirection - args[%d]=%s\n", i, single_command[i]);
-                                // }
-
-                                // // DEBUG!!
-                                // FILE *f = fopen("debug.txt", "a");
-                                // fprintf(f, "Debug child: path=%s\n", path);
-                                // fclose(f);
-                                
+                                configure_redirection(single_command);                        
 
                                 // process, we have access to parsed input.
                                 execv(path, single_command);
-                                // char *args[] = {"ls", "-l", NULL};
-                                // execv("/bin/ls", args);
                                 
                                 // if execv failed
-                                fprintf(stderr, ERROR_MESSAGE);
+                                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                                 exit(1);                // Exit the child process
                         }
                 }
-
                 // parent waits for children
                 while (wait(NULL) > 0);
 
                 // Free mem
                 free_nested_arr(args);
                 free(args);
-
-                // Universally, there should always be a newline after each command (batch mode and interactive mode)
-                // printf("\n");
         }
-        
         // Free global vars at the end
         free_nested_arr(search_paths);
         free(input);
@@ -382,7 +338,7 @@ void handle_cd(char **args)
         int res = chdir(*(args+1));
         if (res == -1)
         {
-                fprintf(stderr, ERROR_MESSAGE);
+                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                 return;
         }
 }
@@ -394,7 +350,7 @@ void handle_exit(char **args)
 
         if (second_arg != NULL)
         {
-                fprintf(stderr, ERROR_MESSAGE);
+                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                 return;
         }
         exit(0);
@@ -410,7 +366,7 @@ void handle_path(char **args)
                 search_paths[count] = malloc(strlen(args[index]) + 3);
                 if (search_paths[count] == NULL)
                 {
-                        fprintf(stderr, ERROR_MESSAGE);
+                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                         return;
                 }
                 strcpy(search_paths[count], args[index]);
@@ -466,12 +422,12 @@ void configure_redirection(char **args)
         }
         if (args[count+1] == NULL || strcmp(args[count+1], ">") == 0)           // Case: doesn't exist any valid file/directory after the redirection character
         {
-                fprintf(stderr, ERROR_MESSAGE);
+                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                 exit(1);                                                        // Exits this specific process, keeps looking for the next command though.
         }
         if (args[count+1] != NULL && args[count+2] != NULL)                     // check for multiple redirection operators / files to the right
         {
-                fprintf(stderr, ERROR_MESSAGE);
+                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                 exit(1);
         }
         
@@ -481,6 +437,10 @@ void configure_redirection(char **args)
         // Setup redirection
         // Note: *(args+count) is > character
         int fd = open(*(args+count+1), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd == -1) {
+                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                exit(1);
+        }
         dup2(fd, STDOUT_FILENO);
         close(fd);
 }
@@ -528,24 +488,50 @@ void add_bin_path_automatically()
 {
         search_paths[0] = malloc(6);
         if (search_paths[0] == NULL) {
-                fprintf(stderr, ERROR_MESSAGE);
+                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                 exit(1);
         }
         strcpy(search_paths[0], "/bin/");
         
         search_paths[1] = malloc(9);
         if (search_paths[1] == NULL) {
-                fprintf(stderr, ERROR_MESSAGE);
+                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                 exit(1);
         }
         strcpy(search_paths[1], "/usr/bin/");
         
         search_paths[2] = malloc(7);
         if (search_paths[2] == NULL) {
-                fprintf(stderr, ERROR_MESSAGE);
+                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                 exit(1);
         }
         strcpy(search_paths[2], "/sbin/");
         search_paths[3] = NULL;
 }
 
+// TODO: implement these into the file
+
+// Error helper
+static void shell_error(void) {
+    write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+}
+
+// Safe malloc helper
+static void* safe_malloc(size_t size) {
+    void* ptr = malloc(size);
+    if (ptr == NULL) {
+        shell_error();
+        exit(1);
+    }
+    return ptr;
+}
+
+// Safe strdup helper
+static char* safe_strdup(const char* str) {
+    char* new_str = strdup(str);
+    if (new_str == NULL) {
+        shell_error();
+        exit(1);
+    }
+    return new_str;
+}
