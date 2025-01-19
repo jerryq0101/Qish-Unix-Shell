@@ -37,10 +37,10 @@ int main(int argc, char *argv[])
 {
         char* input = malloc(MAXLINE);
 
-        // if (freopen("input.txt", "r", stdin) == NULL)
-        // {
-        //         perror("error opening stdin");
-        // }
+        if (freopen("input.txt", "r", stdin) == NULL)
+        {
+                perror("error opening stdin");
+        }
 
         int batch_mode = 0;
 
@@ -83,6 +83,8 @@ int main(int argc, char *argv[])
                         exit(0);
                 }
                 
+
+                // TODO: INPUT PARSING FOR > and & operators (no need space)
                 char parsed_input[MAXLINE];
 
                 null_terminate_input(parsed_input, input);              // parse line
@@ -91,14 +93,18 @@ int main(int argc, char *argv[])
                 collapse_white_space_group(parsed_input, parsed_input);
                 
                 printf("PARSED INPUT! %s\n", parsed_input);
+
+                // Check for parallel commands
                 
                 // Generate execv arguments / redirection arguments or parallel commands
                 // SIZE: 20 * sizeof(char*) = 20 * 8 = 160 (20 strings vs 20 bytes)
                 char **args = malloc(MAXARGS * sizeof(char*));  
                 generate_execv_args(parsed_input, args);
 
-                printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
+                
+                
 
+                printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
 
                 // Check if built in command (exit, cd, path)
                 if (!strcmp("exit", args[0]))
@@ -172,7 +178,6 @@ int main(int argc, char *argv[])
                 wait(NULL);
 
                 // Free mem
-                // TODO: not sure why this breaks when I free args.
                 free_nested_arr(args);
                 free(args);
 
@@ -248,15 +253,14 @@ void handle_path(char **args)
         int count = 0;
         while (*(args) != NULL)
         {
-                // TODO: Check if the path is valid
-                *(search_paths+count) = malloc(strlen(*(args)) +1);
-                strcpy(*(search_paths+count), *(args));
+                search_paths[count] = malloc(strlen(*(args)) + 3);
+                strcpy(search_paths[count], *(args));
+                strcat(search_paths[count], "/");
                 args++;
                 count++;
         }
         *(search_paths+count) = NULL;
         // Note: empty search_paths[i] are 0x0 naturally
-        // TODO: ENFORCE ^
 }
 
 void select_search_path(char *path, char* name)
@@ -298,9 +302,6 @@ void configure_redirection(char **args)
                 fprintf(stderr, "Invalid token after redirection character");
                 exit(1);                                                        // Exits this specific process, keeps looking for the next command though.
         }
-
-        // DON"T HAVE TO CHECK THE COMMAND and NAME validity, just have to check that characters exist in the format
-        // TODO: potentially more error checking cases
 
         // Delete redirection operator by null termination
         *(args+count) = NULL;

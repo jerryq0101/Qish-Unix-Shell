@@ -1,1 +1,1 @@
-mkdir BRUH
+wc output.txt & ls -l

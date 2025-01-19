@@ -1,8 +1,4 @@
-total 120
--rw-r--r--  1 jerryqi  staff    472 18 Jan 16:23 debug.txt
--rw-r--r--  1 jerryqi  staff     70 18 Jan 15:33 input.txt
--rw-r--r--  1 jerryqi  staff      0 18 Jan 16:23 output.txt
--rw-r--r--  1 jerryqi  staff    394 18 Jan 15:33 random_file.txt
--rwxr-xr-x  1 jerryqi  staff  35960 18 Jan 16:22 shell
--rw-r--r--  1 jerryqi  staff  10548 18 Jan 16:22 shell.c
-drwxr-xr-x  3 jerryqi  staff     96 18 Jan 15:11 shell.dSYM
+Child after redirection - path=/usr/bin/wc
+Child after redirection - args[0]=wc
+Child after redirection - args[1]=output.txt
+       3      15     125 output.txt
