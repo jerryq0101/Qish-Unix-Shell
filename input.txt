@@ -1,2 +1,1 @@
-path tests
-p1.sh
+ls&ls&ls

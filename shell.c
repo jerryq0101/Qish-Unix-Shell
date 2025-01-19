@@ -45,12 +45,17 @@ int main(int argc, char *argv[])
         char* input = malloc(MAXLINE);
         int batch_mode = 0;
 
+        // if (freopen("input.txt", "r", stdin) == NULL)
+        // {
+        //         perror("error opening stdin");
+        // }
+
         // Handle Batch mode
         if (argc > 1)
         {
                 if (argc > 2)   // Catching case where there is many file inputs
                 {
-                        fprintf(stderr, "Expected 1 file input\n");
+                        fprintf(stderr, "An error has occurred\n");
                         exit(1);
                 }
 
@@ -61,7 +66,7 @@ int main(int argc, char *argv[])
                 int fd = open(argv[1], O_RDONLY);
                 if ((fd = open(argv[1], O_RDONLY)) == -1)
                 {
-                        perror("Error opening specified file");
+                        fprintf(stderr, "An error has occurred\n");
                         exit(1);
                 }
                 dup2(fd, STDIN_FILENO);
@@ -101,7 +106,7 @@ int main(int argc, char *argv[])
                 // printf("AfTER GENERATING EXECV FIRST ELEMENT ARGS: %s\n", args[0]);
 
                 // generated arguments that are cleanly separated
-                char** command_arg_list[MAX_PARALLEL_COMMANDS];
+                char** command_arg_list[MAX_PARALLEL_COMMANDS] = {0};
                 int parallel_commands = configure_parallel(command_arg_list, args);
                 // configure_parallel modifies the command arg list s.t.
                 // there is an char **args like sequence at each memory slot until NULL ptr
@@ -111,8 +116,8 @@ int main(int argc, char *argv[])
                         char **single_command = command_arg_list[i];
                         // printf("COMMAND SELECTION %s\n", single_command[0]);
 
+                        // TODO: put all of this inside of the child process
                         // Check if built in command (exit, cd, path)
-                        // TODO: handle these in the child process
                         if (strcmp("exit", single_command[0]) == 0)
                         {
                                 handle_exit(single_command);
@@ -131,14 +136,14 @@ int main(int argc, char *argv[])
 
                         // Not a built in command
                         // check if process exists in the different search paths
-                        char path[CONCAT_PATH_MAX];                                     // 100 characters MAX
+                        char path[CONCAT_PATH_MAX] = {0};                                     // 100 characters MAX
                         // for (int i = 0 ; search_paths[i] != NULL; i++)
                         // {
                         //         printf("search_path item: %s\n", search_paths[i]);
                         // }
                         // printf("ARGS[0] BEFORE : %s\n", single_command[0]);
 
-                        // TODO: HANDLE THE CASE WHERE ITS NOT A COMMAND BUT A SHELL SCRIPT
+
                         select_search_path(path, single_command[0]);         // finds suitable search path out of search_path and puts it in path, if not...
                         
                         // printf("ARGS[0] AFTER : %s\n", single_command[0]);
@@ -174,6 +179,7 @@ int main(int argc, char *argv[])
                                 // FILE *f = fopen("debug.txt", "a");
                                 // fprintf(f, "Debug child: path=%s\n", path);
                                 // fclose(f);
+                                
 
                                 // process, we have access to parsed input.
                                 execv(path, single_command);
@@ -202,6 +208,8 @@ int main(int argc, char *argv[])
         free(input);                            // free input
 }
 
+
+// configure_parallel - returns number of parallel commands there are
 int configure_parallel(char ***arg_list, char **args)
 {
         // Strategy;
@@ -213,11 +221,23 @@ int configure_parallel(char ***arg_list, char **args)
         int index = 0;
         int set_pointer = 1;
 
+        // Handle single & case
+        if (args[0] != NULL && strcmp("&", args[0]) == 0 && args[1] == NULL) {
+                return 0;  // No commands to run
+        }
+
+        int ended_with_amp = 0;
+
         // assume args terminates by the null pointer
         while (args[index] != NULL)
         {
                 if (set_pointer)                        // not &
                 {
+                        // // Error if first token is &
+                        // if (strcmp("&", args[index]) == 0) {
+                        //         return -1;  // Invalid format
+                        // }
+
                         // set the command arglist to be the beginning of each command
                         arg_list[commands_count] = args+index;
                         set_pointer = 0;
@@ -226,14 +246,14 @@ int configure_parallel(char ***arg_list, char **args)
                 {
                         args[index] = NULL;
                         set_pointer = 1;
+                        ended_with_amp = 1;
                         commands_count++;
                 }
                 index++;
         }
 
-        return commands_count - 1;
+        return commands_count + (set_pointer ? 0 : 1);
 }
-
 
 void free_nested_arr(char** nested)
 {
@@ -264,25 +284,89 @@ void null_terminate_input(char* parsed_input, char* raw_input)
 // program_name - char pointer (string)
 // args - an array of char pointers (strings)
 
+
+// parses arguments from null terminated char arr, puts them into array of strings
+// Also handles the > not having a space with it cases
+// TODO: also needs to handle & not having spaces around it
 void generate_execv_args(char* parsed_input, char** args)
 {
         // parse input in here and set those variables
         // btw: args need to be NULL terminated
         char* token;
+        int arg_count = 0;
 
-        int count = 0;
-        while ((token = strsep(&parsed_input, " ")) != NULL)    // each token is nul terminated
-        {
-                // this position will set the arr[count] for first 2 as 8 byte pointer, 
-                // as soon as we arrive at the 3rd token, the args memory block is not enough, 
-                // so the function likely terminates
-                // When we write beyond the allocated memory (storing it in the third pointer spot),
-                // anything can happen to the entire args array because I am corrupting memory.
-                args[count] = malloc(strlen(token)+1);
-                strcpy(args[count], token);
-                count++;
+        while ((token = strsep(&parsed_input, " ")) != NULL) {
+                if (*token == '\0') continue;
+                
+                char* redirect = strchr(token, '>');
+                char* parallel = strchr(token, '&');
+
+                if (redirect != NULL) {
+                        // We found a > character
+                        
+                        // Case 1: token is just ">" 
+                        if (strlen(token) == 1) {
+                                args[arg_count++] = strdup(">");
+                                continue;
+                        }
+                        
+                        // Case 2: ">filename"
+                        if (redirect == token) {
+                                args[arg_count++] = strdup(">");
+                                args[arg_count++] = strdup(redirect + 1);
+                                continue;
+                        }
+                        
+                        // Case 3: "filename>"
+                        if (*(redirect + 1) == '\0') {
+                                *redirect = '\0';  // Split at >
+                                args[arg_count++] = strdup(token);
+                                args[arg_count++] = strdup(">");
+                                continue;
+                        }
+                        
+                        // Case 4: "filename>filename"
+                        *redirect = '\0';  // Split at >
+                        args[arg_count++] = strdup(token);
+                        args[arg_count++] = strdup(">");
+                        args[arg_count++] = strdup(redirect + 1);
+                        continue;
+                }
+                
+                if (parallel != NULL) {
+                        // Process the token iteratively until no more & found
+                        char* current = token;
+                        while (1) {
+                                parallel = strchr(current, '&');
+                                if (parallel == NULL) {
+                                        // No more &, add remaining as token if it exists
+                                        if (*current != '\0') {
+                                                args[arg_count++] = strdup(current);
+                                        }
+                                        break;
+                                }
+
+                                // Split at &
+                                *parallel = '\0';
+
+                                // Add current part if it's not empty
+                                if (*current != '\0') {
+                                        args[arg_count++] = strdup(current);
+                                }
+                                
+                                // Add the & token
+                                args[arg_count++] = strdup("&");
+                                
+                                // Move to next part
+                                current = parallel + 1;
+                        }
+                        continue;
+                }
+
+                // Normal token without >
+                args[arg_count++] = strdup(token);
         }
-        *(args+count) = NULL;
+        args[arg_count] = NULL;
 }
 
 
@@ -312,23 +396,24 @@ void handle_exit(char **args)
 
 void handle_path(char **args)
 {
-        args++;
         int count = 0;
-        while (*(args) != NULL)
+        
+        int index = 1;
+        while (args[index] != NULL)
         {
-                search_paths[count] = malloc(strlen(*(args)) + 3);
+                search_paths[count] = malloc(strlen(args[index]) + 3);
                 if (search_paths[count] == NULL)
                 {
                         fprintf(stderr, "An error has occurred\n");
                         return;
                 }
-                strcpy(search_paths[count], *(args));
+                strcpy(search_paths[count], args[index]);
                 strcat(search_paths[count], "/");
                 
-
-                args++;
+                index++;
                 count++;
         }
+        // Even if path has no arguments, we clear the search paths
         search_paths[count] = NULL;
         // Note: empty search_paths[i] are 0x0 naturally
 }
@@ -336,7 +421,7 @@ void handle_path(char **args)
 void select_search_path(char *path, char* name)
 {
         int count = 0;
-        char temp[100];
+        char temp[100] = {0};
         // printf("SELECT SEARCH PATH FUNCTION\n");
         // printf("NAME: %s\n", name);
         while (search_paths[count] != NULL)
@@ -359,28 +444,33 @@ void select_search_path(char *path, char* name)
 }
 
 // configure_redirection - check for redirection operators and modify the arg list to fit
-// PRECONDITION: currently dealing with single program redirection
+// PRECONDITION: args is a single process' command, therefore there shouldn't exist stuff after the filename
 // NOTE that item of args is terminated by a NULL pointer, therefore we check *(args+count) != NULL. 
 void configure_redirection(char **args)
 {
         int count = 0;
-        while (*(args+count) != NULL && strcmp(*(args+count), ">") != 0) 
+        while (args[count] != NULL && strcmp(args[count], ">") != 0) 
         {
                 count++;
         }
         
-        if (*(args+count) == NULL)                                             // Case: no redirection operators
+        if (args[count] == NULL)                                             // Case: no redirection operators
         {
                 return;
         }
-        if (*(args+count+1) == NULL || strcmp(*(args+count+1) == 0, ">"))           // Case: doesn't exist any valid file/directory after the redirection character
+        if (args[count+1] == NULL || strcmp(args[count+1], ">") == 0)           // Case: doesn't exist any valid file/directory after the redirection character
         {
-                fprintf(stderr, "Invalid token after redirection character");
+                fprintf(stderr, "An error has occurred\n");
                 exit(1);                                                        // Exits this specific process, keeps looking for the next command though.
         }
-
+        if (args[count+1] != NULL && args[count+2] != NULL)                     // check for multiple redirection operators / files to the right
+        {
+                fprintf(stderr, "An error has occurred\n");
+                exit(1);
+        }
+        
         // Delete redirection operator by null termination
-        *(args+count) = NULL;
+        args[count] = NULL;
         
         // Setup redirection
         // Note: *(args+count) is > character
