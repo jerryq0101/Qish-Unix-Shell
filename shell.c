@@ -37,7 +37,6 @@ void add_bin_path_automatically();
 #define MAXPATHS 100
 #define CONCAT_PATH_MAX 100
 #define MAX_PARALLEL_COMMANDS 100
-
 #define ERROR_MESSAGE "An error has occurred\n"
 
 char* search_paths[MAXPATHS * sizeof(char*)];
@@ -55,16 +54,13 @@ int main(int argc, char *argv[])
         // Handle Batch mode
         if (argc > 1)
         {
-                if (argc > 2)   // Catching case where there is many file inputs
+                if (argc > 2)                                           // Catching case where there is many file inputs
                 {
                         write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                         exit(1);
                 }
-
-                // Toggle Batch mode
                 batch_mode = 1;
 
-                // redirection of stdin to the file
                 int fd = open(argv[1], O_RDONLY);
                 if ((fd = open(argv[1], O_RDONLY)) == -1)
                 {
@@ -77,9 +73,9 @@ int main(int argc, char *argv[])
         
         add_bin_path_automatically();
 
-        while (1)                       // Main While loop
+        while (1)                                                       // Main While loop
         {
-                if (!batch_mode)        // Interactive mode prompt
+                if (!batch_mode)                                        // Interactive mode prompt
                 {
                         printf("process> ");
                 }
@@ -92,7 +88,7 @@ int main(int argc, char *argv[])
                 }
                 
                 char parsed_input[MAXLINE];
-                null_terminate_input(parsed_input, input);              // parse line
+                null_terminate_input(parsed_input, input);
                 collapse_white_space_group(parsed_input, parsed_input);
 
                 // Generate arguments across the line
@@ -101,7 +97,7 @@ int main(int argc, char *argv[])
                 if (args == NULL)
                 {
                         write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
-                        exit(1);
+                        continue;
                 }
                 parse_command_line(parsed_input, args);
 
@@ -131,9 +127,9 @@ int main(int argc, char *argv[])
                         }
 
                         // Not a built in command
-                        // check if process exists in the different search paths
+                        // Check if process exists in the different search paths
                         char path[CONCAT_PATH_MAX] = {0};                                     // 100 characters MAX
-                        select_search_path(path, single_command[0]);         // finds suitable search path out of search_path
+                        select_search_path(path, single_command[0]);                          // finds suitable search path out of search_path
                         
                         // Single child process for now.
                         pid_t process = fork();
@@ -143,15 +139,7 @@ int main(int argc, char *argv[])
                         }
                         else if (process == 0)
                         {
-                                // // Print before redirection
-                                // printf("Child start - path=%s\n", path);
-                                // for (int i = 0; single_command[i] != NULL; i++) {
-                                //         printf("Child start - args[%d]=%s\n", i, single_command[i]);
-                                // }
-
                                 configure_redirection(single_command);                        
-
-                                // process, we have access to parsed input.
                                 execv(path, single_command);
                                 
                                 // if execv failed
@@ -250,7 +238,6 @@ void null_terminate_input(char* parsed_input, char* raw_input)
 
 // parses arguments from null terminated char arr, puts them into array of strings
 // Also handles the > not having a space with it cases
-// TODO: also needs to handle & not having spaces around it
 void parse_command_line(char* parsed_input, char** args)
 {
         // parse input in here and set those variables
@@ -359,7 +346,6 @@ void handle_exit(char **args)
 void handle_path(char **args)
 {
         int count = 0;
-        
         int index = 1;
         while (args[index] != NULL)
         {
@@ -509,29 +495,3 @@ void add_bin_path_automatically()
         search_paths[3] = NULL;
 }
 
-// TODO: implement these into the file
-
-// Error helper
-static void shell_error(void) {
-    write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
-}
-
-// Safe malloc helper
-static void* safe_malloc(size_t size) {
-    void* ptr = malloc(size);
-    if (ptr == NULL) {
-        shell_error();
-        exit(1);
-    }
-    return ptr;
-}
-
-// Safe strdup helper
-static char* safe_strdup(const char* str) {
-    char* new_str = strdup(str);
-    if (new_str == NULL) {
-        shell_error();
-        exit(1);
-    }
-    return new_str;
-}
