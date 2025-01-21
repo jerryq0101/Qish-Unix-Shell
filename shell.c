@@ -215,9 +215,21 @@ void execute_piped_command(char **args)
                         pipe_count++;
                 }
         }
-        char **commands[pipe_count + 1];
+
+        // a struct that represents a command
+        struct Command {
+                char** command;                 // Command array
+                int need_redirection;           // If there is a file redirection in here
+                int personal_pipe[2];           // Personal pipe for holding redirection
+                char* file_name;                // file to redirect to
+                int pipe_to_read_from;          // pipe to read from
+                int pipe_to_write_to;           // pipe to write to
+        };
+
+        struct Command commands[sizeof(struct Command) * (pipe_count + 1)];
         int cmd_index = 0;
-        commands[0] = args;
+
+        commands[0] = (struct Command){args, 0, 0, 0, 0, 0};
 
         // Divides the command based on the location of the pipe operator
         for (int i = 0; args[i] != NULL; i++)
@@ -225,11 +237,32 @@ void execute_piped_command(char **args)
                 if (strcmp(args[i], "|") == 0)
                 {
                         args[i] = NULL;
-                        commands[++cmd_index] = &args[i + 1];
+                        commands[++cmd_index] = (struct Command){&args[i + 1], 0, 0, 0, 0, 0};
                 }
         }
 
-        // create pipes
+        // check if there is need for for all the commands, if so setup necessary pipes for it
+        for (int i = 0; commands[i].command != NULL; i++)
+        {
+                for (int j = 0; commands[i].command[j] != NULL; j++)            // loop until the command has ended
+                {
+                        if (strcmp(commands[i].command[j], ">") == 0)                      // found redirection operator
+                        {
+                                commands[i].need_redirection = 1;
+                                commands[i].file_name = strdup(commands[i].command[j+1]);               // Get file name
+                                pipe(commands[i].personal_pipe);                                        // setup pipe of struct
+                                
+                                // Set the command to break here
+                                commands[i].command[j] = NULL;
+                                break;
+                        }
+                }
+                // if need_redirection is 0
+                // personal pipe should be 0
+                // file_name should be 0
+        }
+
+        // creates pipes for shared use
         int pipes[pipe_count][2];
         for (int i = 0; i < pipe_count; i++)
         {
@@ -238,68 +271,26 @@ void execute_piped_command(char **args)
                         fprintf(stderr, ERROR_MESSAGE);
                         exit(1);
                 }
-        }
+                if (i == 0)                     // only set the write to
+                {
 
-        // Store child PIDs to wait for them later
-        pid_t child_pids[pipe_count + 1];
-
-        // Create processes for each command
-        for (int i = 0; i <= pipe_count; i++)
-        {
-                pid_t pid = fork();
-                if (pid < 0) {
-                        fprintf(stderr, ERROR_MESSAGE);
-                        exit(1);
                 }
+                else if (i == pipe_count-1)     // set this element and the next element
+                {
+
+                }
+
+                // Each command should write to its corresponding pipe
                 
-                if (pid == 0)
-                {
-                        // Child process
-                        
-                        // Set up pipe redirections
-                        if (i > 0) // Not the first command
-                        {
-                                dup2(pipes[i - 1][0], STDIN_FILENO);
-                        }
-                        if (i < pipe_count) // Not the last command
-                        {
-                                dup2(pipes[i][1], STDOUT_FILENO);
-                        }
 
-                        // Close all pipe ends in child
-                        for (int j = 0; j < pipe_count; j++)
-                        {
-                                close(pipes[j][0]);
-                                close(pipes[j][1]);
-                        }
-
-                        char path[CONCAT_PATH_MAX] = {0};
-                        select_search_path(path, commands[i][0]);
-                        execv(path, commands[i]);
-                        
-                        // If execv fails
-                        fprintf(stderr, ERROR_MESSAGE);
-                        exit(1);
-                }
-                else
-                {
-                        // Parent process
-                        child_pids[i] = pid;
-                        
-                        // Close pipe ends that aren't needed anymore
-                        if (i > 0)
-                        {
-                                close(pipes[i-1][0]);
-                                close(pipes[i-1][1]);
-                        }
-                }
         }
 
-        // Parent waits for all children to finish
-        for (int i = 0; i <= pipe_count; i++)
-        {
-                waitpid(child_pids[i], NULL, 0);
-        }
+
+        // // Parent waits for all children to finish
+        // for (int i = 0; i <= pipe_count; i++)
+        // {
+        //         waitpid(child_pids[i], NULL, 0);
+        // }
 }
 
 // configure_parallel - returns number of parallel commands there are
@@ -385,8 +376,6 @@ void parse_command_line(char* parsed_input, char** args)
                 if (*token == '\0') continue;
                 
                 char* redirect = strchr(token, '>');
-                
-                char* pipeline = strchr(token, '|');
 
                 if (redirect != NULL) {
                         // We found a > character
@@ -421,11 +410,6 @@ void parse_command_line(char* parsed_input, char** args)
                 
                 // TODO: for true correctness, I have to split this and the pipeline processing into three parts
 
-                if (pipeline != NULL)
-                {
-                        
-                }
-
                 // Normal token without >
                 args[arg_count++] = strdup(token);
         }
@@ -456,6 +440,13 @@ void parse_operator_in_args(char ***args, const char symbol)
                         while (1) {
                                 parallel = strchr(current, symbol);
 
+                                // Case: the | is the only thing in here
+                                if (strlen(current) == 1)
+                                {
+                                        new_args[new_args_index] = strdup(symbol_str_form);
+                                        break;
+                                }
+
                                 // Case: there are no more &s
                                 if (parallel == NULL)
                                 {
@@ -465,6 +456,7 @@ void parse_operator_in_args(char ***args, const char symbol)
                                         }
                                         break;
                                 }
+                                
 
                                 // Case: there are more &s
                                 // terminate this character in current string
