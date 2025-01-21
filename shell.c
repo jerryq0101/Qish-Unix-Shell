@@ -59,10 +59,10 @@ int main(int argc, char *argv[])
         int batch_mode = 0;
 
 
-        if (freopen("input.txt", "r", stdin) == NULL)
-        {
-                perror("error opening stdin");
-        }
+        // if (freopen("input.txt", "r", stdin) == NULL)
+        // {
+        //         perror("error opening stdin");
+        // }
 
         // Handle Batch mode
         if (argc > 1)
@@ -288,8 +288,8 @@ void execute_piped_command(char **args)
                 }
                 // Each command should write to its corresponding pipe, except for the last one
         }
-        commands[0].pipe_to_read_from = STDIN_FILENO;
-        commands[pipe_count].pipe_to_write_to = STDOUT_FILENO;
+        commands[0].pipe_to_read_from = dup(STDIN_FILENO);
+        commands[pipe_count].pipe_to_write_to = dup(STDOUT_FILENO);
 
 
         // Calling now
@@ -361,15 +361,10 @@ void execute_piped_command(char **args)
                         }
 
                 }
-                
-
+                wait(NULL);
+                close(current_command.pipe_to_read_from);
+                close(current_command.pipe_to_write_to);
         }
-
-        // // Parent waits for all children to finish
-        // for (int i = 0; i <= pipe_count; i++)
-        // {
-        //         waitpid(child_pids[i], NULL, 0);
-        // }
 }
 
 // configure_parallel - returns number of parallel commands there are
