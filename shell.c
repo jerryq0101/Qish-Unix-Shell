@@ -437,20 +437,21 @@ void parse_operator_in_args(char ***args, const char symbol)
                 {
                         // Process the item until no more & is found
                         char* current = dereferenced_args[index];                    // index of current position in string
+                        
+                        // Case: the | is the only thing in here
+                        if (strlen(current) == 1)
+                        {
+                                new_args[new_args_index++] = strdup(symbol_str_form);
+                                index++;
+                                continue;
+                        }
                         while (1) {
                                 parallel = strchr(current, symbol);
-
-                                // Case: the | is the only thing in here
-                                if (strlen(current) == 1)
-                                {
-                                        new_args[new_args_index] = strdup(symbol_str_form);
-                                        break;
-                                }
 
                                 // Case: there are no more &s
                                 if (parallel == NULL)
                                 {
-                                        if (current != NULL)            // Case: if there are more characters at this point
+                                        if (*current != '\0')            // Case: if there are more characters at this point
                                         {
                                                 new_args[new_args_index++] = strdup(current);
                                         }
@@ -476,9 +477,8 @@ void parse_operator_in_args(char ***args, const char symbol)
                 }
                 else
                 {
-                        new_args[new_args_index] = strdup(dereferenced_args[index]);
+                        new_args[new_args_index++] = strdup(dereferenced_args[index]);
                 }
-                new_args_index++;
                 index++;
         }
         new_args[new_args_index] = NULL;
