@@ -2,17 +2,21 @@
 triple:          'arm64-apple-darwin'
 binary-path:     '/Users/jerryqi/Documents/Github/UNIX-Shell/shell'
 relocations:
-  - { offsetInCU: 0x26, offset: 0x26, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x10000312C, symSize: 0x3F0 }
-  - { offsetInCU: 0x4D, offset: 0x4D, size: 0x8, addend: 0x0, symName: _search_paths, symBinAddr: 0x100008000, symSize: 0x0 }
-  - { offsetInCU: 0x6F, offset: 0x6F, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x10000312C, symSize: 0x3F0 }
-  - { offsetInCU: 0x18B, offset: 0x18B, size: 0x8, addend: 0x0, symName: _null_terminate_input, symObjAddr: 0x3F0, symBinAddr: 0x10000351C, symSize: 0x78 }
-  - { offsetInCU: 0x1CB, offset: 0x1CB, size: 0x8, addend: 0x0, symName: _collapse_white_space_group, symObjAddr: 0x468, symBinAddr: 0x100003594, symSize: 0x14C }
-  - { offsetInCU: 0x21E, offset: 0x21E, size: 0x8, addend: 0x0, symName: _generate_execv_args, symObjAddr: 0x5B4, symBinAddr: 0x1000036E0, symSize: 0xA4 }
-  - { offsetInCU: 0x271, offset: 0x271, size: 0x8, addend: 0x0, symName: _configure_parallel, symObjAddr: 0x658, symBinAddr: 0x100003784, symSize: 0xF0 }
-  - { offsetInCU: 0x2D1, offset: 0x2D1, size: 0x8, addend: 0x0, symName: _handle_cd, symObjAddr: 0x748, symBinAddr: 0x100003874, symSize: 0x28 }
-  - { offsetInCU: 0x2F7, offset: 0x2F7, size: 0x8, addend: 0x0, symName: _handle_path, symObjAddr: 0x770, symBinAddr: 0x10000389C, symSize: 0xD8 }
-  - { offsetInCU: 0x32C, offset: 0x32C, size: 0x8, addend: 0x0, symName: _free_nested_arr, symObjAddr: 0x848, symBinAddr: 0x100003974, symSize: 0x84 }
-  - { offsetInCU: 0x36C, offset: 0x36C, size: 0x8, addend: 0x0, symName: _select_search_path, symObjAddr: 0x8CC, symBinAddr: 0x1000039F8, symSize: 0x114 }
-  - { offsetInCU: 0x3BF, offset: 0x3BF, size: 0x8, addend: 0x0, symName: _configure_redirection, symObjAddr: 0x9E0, symBinAddr: 0x100003B0C, symSize: 0x168 }
-  - { offsetInCU: 0x403, offset: 0x403, size: 0x8, addend: 0x0, symName: _add_bin_path_automatically, symObjAddr: 0xB48, symBinAddr: 0x100003C74, symSize: 0x9C }
+  - { offsetInCU: 0x26, offset: 0x26, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100002710, symSize: 0x4FC }
+  - { offsetInCU: 0x59, offset: 0x59, size: 0x8, addend: 0x0, symName: _search_paths, symBinAddr: 0x100008000, symSize: 0x0 }
+  - { offsetInCU: 0x7B, offset: 0x7B, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100002710, symSize: 0x4FC }
+  - { offsetInCU: 0x1EF, offset: 0x1EF, size: 0x8, addend: 0x0, symName: _null_terminate_input, symObjAddr: 0x4FC, symBinAddr: 0x100002C0C, symSize: 0x78 }
+  - { offsetInCU: 0x233, offset: 0x233, size: 0x8, addend: 0x0, symName: _collapse_white_space_group, symObjAddr: 0x574, symBinAddr: 0x100002C84, symSize: 0x14C }
+  - { offsetInCU: 0x286, offset: 0x286, size: 0x8, addend: 0x0, symName: _parse_command_line, symObjAddr: 0x6C0, symBinAddr: 0x100002DD0, symSize: 0x26C }
+  - { offsetInCU: 0x305, offset: 0x305, size: 0x8, addend: 0x0, symName: _parse_operator_in_args, symObjAddr: 0x92C, symBinAddr: 0x10000303C, symSize: 0x1F0 }
+  - { offsetInCU: 0x3BF, offset: 0x3BF, size: 0x8, addend: 0x0, symName: _configure_parallel, symObjAddr: 0xB1C, symBinAddr: 0x10000322C, symSize: 0x1AC }
+  - { offsetInCU: 0x434, offset: 0x434, size: 0x8, addend: 0x0, symName: _handle_exit, symObjAddr: 0xCC8, symBinAddr: 0x1000033D8, symSize: 0x58 }
+  - { offsetInCU: 0x469, offset: 0x469, size: 0x8, addend: 0x0, symName: _handle_cd, symObjAddr: 0xD20, symBinAddr: 0x100003430, symSize: 0x58 }
+  - { offsetInCU: 0x49E, offset: 0x49E, size: 0x8, addend: 0x0, symName: _handle_path, symObjAddr: 0xD78, symBinAddr: 0x100003488, symSize: 0x94 }
+  - { offsetInCU: 0x4E2, offset: 0x4E2, size: 0x8, addend: 0x0, symName: _execute_piped_command, symObjAddr: 0xE0C, symBinAddr: 0x10000351C, symSize: 0x41C }
+  - { offsetInCU: 0x648, offset: 0x648, size: 0x8, addend: 0x0, symName: _select_search_path, symObjAddr: 0x1228, symBinAddr: 0x100003938, symSize: 0x100 }
+  - { offsetInCU: 0x69B, offset: 0x69B, size: 0x8, addend: 0x0, symName: _configure_redirection, symObjAddr: 0x1328, symBinAddr: 0x100003A38, symSize: 0x1F0 }
+  - { offsetInCU: 0x6DF, offset: 0x6DF, size: 0x8, addend: 0x0, symName: _free_nested_arr, symObjAddr: 0x1518, symBinAddr: 0x100003C28, symSize: 0x84 }
+  - { offsetInCU: 0x722, offset: 0x722, size: 0x8, addend: 0x0, symName: _add_path, symObjAddr: 0x159C, symBinAddr: 0x100003CAC, symSize: 0xB0 }
+  - { offsetInCU: 0x766, offset: 0x766, size: 0x8, addend: 0x0, symName: _add_bin_path_automatically, symObjAddr: 0x164C, symBinAddr: 0x100003D5C, symSize: 0x64 }
 ...

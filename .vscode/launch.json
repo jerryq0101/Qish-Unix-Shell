@@ -5,6 +5,13 @@
         "version": "0.2.0",
         "configurations": [
                 {
+                        "name": "(lldb) Attach to shell child",
+                        "type": "cppdbg",
+                        "request": "attach",
+                        "program": "${workspaceFolder}/shell",
+                        "MIMode": "lldb"
+                },
+                {
                         "name": "(lldb) Launch",
                         "type": "cppdbg",
                         "request": "launch",
@@ -14,8 +21,7 @@
                         "cwd": "${fileDirname}",
                         "environment": [],
                         "externalConsole": false,
-                        "MIMode": "lldb"
-                }
-
+                        "MIMode": "lldb",
+                },
         ]
 }

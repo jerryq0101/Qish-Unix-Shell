@@ -12,6 +12,8 @@ void parse_command_line(char* parsed_input, char** args);
 void null_terminate_input(char* parsed_input, char* raw_input);
 void collapse_white_space_group(char *dest, char *input);
 
+void parse_operator_in_args(char ***args, const char symbol);
+
 // Built-in-command handlers
 void handle_cd(char **args);
 void handle_path(char **args);
@@ -23,17 +25,21 @@ void select_search_path(char *path, char* name);
 // freeing stuff
 void free_nested_arr(char** nested);
 
-// Redirection
+// Input redirection
 void configure_redirection(char **args);
+
+// Piped Commands
+void execute_piped_command(char **args);
 
 // Parallel Command
 int configure_parallel(char ***arg_list, char **args);
 
 // Makes life easier
 void add_bin_path_automatically();
+void add_path(char** search_paths, int index, const char* path);
 
 #define MAXLINE 100
-#define MAXARGS 100
+#define MAXARGS 200
 #define MAXPATHS 100
 #define CONCAT_PATH_MAX 100
 #define MAX_PARALLEL_COMMANDS 100
@@ -50,6 +56,12 @@ int main(int argc, char *argv[])
                 exit(1);
         }
         int batch_mode = 0;
+
+
+        if (freopen("input.txt", "r", stdin) == NULL)
+        {
+                perror("error opening stdin");
+        }
 
         // Handle Batch mode
         if (argc > 1)
@@ -100,11 +112,22 @@ int main(int argc, char *argv[])
                         continue;
                 }
                 parse_command_line(parsed_input, args);
-
+                parse_operator_in_args(&args, '&');
+                parse_operator_in_args(&args, '|');
+                
                 // Check for parallel commands
                 char** command_arg_list[MAX_PARALLEL_COMMANDS] = {0};
                 int parallel_commands = configure_parallel(command_arg_list, args);
 
+
+                // Create a pipe
+                int p[2];
+                if (pipe(p) < 0)
+                {
+                        fprintf(stderr, ERROR_MESSAGE);
+                        continue;
+                }
+                
                 for (int i = 0; command_arg_list[i] != NULL; i++)
                 {
                         char **single_command = command_arg_list[i];
@@ -125,31 +148,53 @@ int main(int argc, char *argv[])
                                 handle_path(single_command);
                                 continue;
                         }
+                        
+                        int has_pipe = 0;
+                        for (int i = 0 ; single_command[i] != NULL; i++)
+                        {
+                                if (strcmp(single_command[i], "|") == 0)
+                                {
+                                        has_pipe = 1;
+                                        break;
+                                }
+                        }
 
                         // Not a built in command
-                        // Check if process exists in the different search paths
-                        char path[CONCAT_PATH_MAX] = {0};                                     // 100 characters MAX
-                        select_search_path(path, single_command[0]);                          // finds suitable search path out of search_path
-                        
-                        // Single child process for now.
-                        pid_t process = fork();
-                        if (process < 0)
+                        if (has_pipe)
                         {
-                                printf("fork failed\n");
+                                execute_piped_command(single_command);
                         }
-                        else if (process == 0)
+                        else
                         {
-                                configure_redirection(single_command);                        
-                                execv(path, single_command);
+                                // default execution code
+                                // Single child process for now.
+                                pid_t process = fork();
+                                if (process < 0)
+                                {
+                                        printf("fork failed\n");
+                                }
+                                else if (process == 0)
+                                {
+                                        char path[CONCAT_PATH_MAX] = {0};                                     // 100 characters MAX
+                                        select_search_path(path, single_command[0]);                          // finds suitable search path out of search_path
                                 
-                                // if execv failed
-                                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
-                                exit(1);                // Exit the child process
+                                        // check the final element of the command for |
+                                        // This signals the first element giving the output
+                                        
+                                        configure_redirection(single_command);                        
+                                        execv(path, single_command);
+                                        
+                                        // if execv failed
+                                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                                        exit(1);                                                        // Exit the child process
+                                }
+                                // parent waits for children
+                                while (wait(NULL) > 0);
                         }
-                }
-                // parent waits for children
-                while (wait(NULL) > 0);
 
+                }
+
+                // TODO: ANALYSE CHANGED WAY OF FREEING MEMORY
                 // Free mem
                 free_nested_arr(args);
                 free(args);
@@ -160,14 +205,94 @@ int main(int argc, char *argv[])
 }
 
 
+void execute_piped_command(char **args)
+{
+        int pipe_count = 0;
+        for (int i = 0; args[i] != NULL; i++)
+        {
+                if (strcmp(args[i], "|") == 0)
+                {
+                        pipe_count++;
+                }
+        }
+        char **commands[pipe_count + 1];
+        int cmd_index = 0;
+        commands[0] = args;
+
+        // Divides the command based on the location of the pipe operator
+        for (int i = 0; args[i] != NULL; i++)
+        {
+                if (strcmp(args[i], "|") == 0)
+                {
+                        args[i] = NULL;
+                        commands[++cmd_index] = &args[i + 1];
+                }
+        }
+
+        // create pipes
+        int pipes[pipe_count][2];
+        for (int i = 0; i < pipe_count; i++)
+        {
+                if (pipe(pipes[i]) < 0)
+                {
+                        fprintf(stderr, ERROR_MESSAGE);
+                        exit(1);
+                }
+        }
+
+        // Create processes for each command
+        // need to handle redirection on each possible command
+        for (int i = 0; i <= pipe_count; i++)
+        {
+                pid_t pid = fork();
+                if (pid == 0)
+                {
+                        // TODO: its not feeding to wc right now
+                        // setup child redirections
+                        if (i > 0) // if there is a pipe before it, take from its stdin
+                        {
+                                dup2(pipes[i - 1][0], STDIN_FILENO);
+                        }
+                        if (i < pipe_count)
+                        {
+                                dup2(pipes[i][1], STDOUT_FILENO);
+                        }
+                        else    // Last command can just use configure_redirection directly
+                        {
+                                configure_redirection(commands[i]);
+                        }
+                        
+
+                        // // Close all pipe fds
+                        // for (int j = 0; j < pipe_count; j++)
+                        // {
+                        //         close(pipes[j][0]);
+                        //         close(pipes[j][1]);
+                        // }
+
+                        char path[CONCAT_PATH_MAX] = {0};
+                        select_search_path(path, commands[i][0]);
+                        execv(path, commands[i]);
+                        exit(1);
+                }
+                
+
+                // Parent process: close all pipe fds and wait for children
+                for (int i = 0; i < pipe_count; i++)
+                {
+                        close(pipes[i][0]);
+                        close(pipes[i][1]);
+                }
+                for (int i = 0; i <= pipe_count; i++)
+                {
+                        wait(NULL);
+                }
+        }
+}
+
 // configure_parallel - returns number of parallel commands there are
 int configure_parallel(char ***arg_list, char **args)
 {
-        // Strategy;
-        // go through the args allocated storage,
-        // don't allocate anymore for arg_list
-        // when we find a &, set that to NULL, 
-        // and continue on the next element
         int commands_count = 0;
         int index = 0;
         int set_pointer = 1;
@@ -182,18 +307,18 @@ int configure_parallel(char ***arg_list, char **args)
         // assume args terminates by the null pointer
         while (args[index] != NULL)
         {
-                if (set_pointer)                        // not &
+                if (set_pointer)                                // Case: not &
                 {
-                        // // Error if first token is &
-                        // if (strcmp("&", args[index]) == 0) {
-                        //         return -1;  // Invalid format
-                        // }
+                        // Error if first token is &
+                        if (strcmp("&", args[index]) == 0) {
+                                return -1;  // Invalid format
+                        }
 
-                        // set the command arglist to be the beginning of each command
+                        // Set the command arglist to be the beginning of each command
                         arg_list[commands_count] = args+index;
                         set_pointer = 0;
                 }
-                else if (strcmp("&", args[index]) == 0)      // yes &
+                else if (strcmp("&", args[index]) == 0)         // Case: yes &
                 {
                         args[index] = NULL;
                         set_pointer = 1;
@@ -206,6 +331,7 @@ int configure_parallel(char ***arg_list, char **args)
         return commands_count + (set_pointer ? 0 : 1);
 }
 
+
 void free_nested_arr(char** nested)
 {
         // free arguments' memory
@@ -217,6 +343,7 @@ void free_nested_arr(char** nested)
                 }
         }
 }
+
 
 // null_terminate_input - replaces the \n with \0 from raw input
 void null_terminate_input(char* parsed_input, char* raw_input)
@@ -231,13 +358,10 @@ void null_terminate_input(char* parsed_input, char* raw_input)
         parsed_input[count] = '\0';
 }
 
+
 // generate_execv_args - parses and generates the args array for execv.
-// program_name - char pointer (string)
-// args - an array of char pointers (strings)
-
-
 // parses arguments from null terminated char arr, puts them into array of strings
-// Also handles the > not having a space with it cases
+// Also handles the > & operators not having a space
 void parse_command_line(char* parsed_input, char** args)
 {
         // parse input in here and set those variables
@@ -249,11 +373,11 @@ void parse_command_line(char* parsed_input, char** args)
                 if (*token == '\0') continue;
                 
                 char* redirect = strchr(token, '>');
-                char* parallel = strchr(token, '&');
+                
+                char* pipeline = strchr(token, '|');
 
                 if (redirect != NULL) {
                         // We found a > character
-                        
                         // Case 1: token is just ">" 
                         if (strlen(token) == 1) {
                                 args[arg_count++] = strdup(">");
@@ -283,34 +407,11 @@ void parse_command_line(char* parsed_input, char** args)
                         continue;
                 }
                 
-                if (parallel != NULL) {
-                        // Process the token iteratively until no more & found
-                        char* current = token;
-                        while (1) {
-                                parallel = strchr(current, '&');
-                                if (parallel == NULL) {
-                                        // No more &, add remaining as token if it exists
-                                        if (*current != '\0') {
-                                                args[arg_count++] = strdup(current);
-                                        }
-                                        break;
-                                }
+                // TODO: for true correctness, I have to split this and the pipeline processing into three parts
 
-                                // Split at &
-                                *parallel = '\0';
-
-                                // Add current part if it's not empty
-                                if (*current != '\0') {
-                                        args[arg_count++] = strdup(current);
-                                }
-                                
-                                // Add the & token
-                                args[arg_count++] = strdup("&");
-                                
-                                // Move to next part
-                                current = parallel + 1;
-                        }
-                        continue;
+                if (pipeline != NULL)
+                {
+                        
                 }
 
                 // Normal token without >
@@ -318,6 +419,72 @@ void parse_command_line(char* parsed_input, char** args)
         }
         args[arg_count] = NULL;
 }
+
+
+// parse_operator_in_args: looks through the current args for ampersands and formats them correctly
+void parse_operator_in_args(char ***args, const char symbol)
+{
+        char symbol_str_form[2];
+        symbol_str_form[0] = symbol;
+        symbol_str_form[1] = '\0';
+        
+        int index = 0;
+        int new_args_index = 0;
+
+        char** new_args = malloc(MAXARGS * sizeof(char *));
+        char** dereferenced_args = *args;
+
+        while (dereferenced_args[index] != NULL)
+        {
+                char* parallel = strchr(dereferenced_args[index], symbol);
+                if (parallel != NULL)                           // Character exists in this string
+                {
+                        // Process the item until no more & is found
+                        char* current = dereferenced_args[index];                    // index of current position in string
+                        while (1) {
+                                parallel = strchr(current, symbol);
+
+                                // Case: there are no more &s
+                                if (parallel == NULL)
+                                {
+                                        if (current != NULL)            // Case: if there are more characters at this point
+                                        {
+                                                new_args[new_args_index++] = strdup(current);
+                                        }
+                                        break;
+                                }
+
+                                // Case: there are more &s
+                                // terminate this character in current string
+                                *parallel = '\0';
+                                
+                                // add the part before if not empty
+                                if (*current != '\0')
+                                {
+                                        new_args[new_args_index++] = strdup(current);
+                                }
+                                
+                                // add the & token
+                                new_args[new_args_index++] = strdup(symbol_str_form);
+                                
+                                current = parallel+1;
+                        }
+                }
+                else
+                {
+                        new_args[new_args_index] = strdup(dereferenced_args[index]);
+                }
+                new_args_index++;
+                index++;
+        }
+        new_args[new_args_index] = NULL;
+
+        free_nested_arr(dereferenced_args);
+        free(*args);
+        *args = new_args;
+}
+
+
 
 // BUILT IN COMMAND HANDLERS
 void handle_cd(char **args)
@@ -329,6 +496,7 @@ void handle_cd(char **args)
                 return;
         }
 }
+
 
 void handle_exit(char **args)
 {
@@ -343,44 +511,31 @@ void handle_exit(char **args)
         exit(0);
 }
 
+
 void handle_path(char **args)
 {
         int count = 0;
         int index = 1;
         while (args[index] != NULL)
         {
-                search_paths[count] = malloc(strlen(args[index]) + 3);
-                if (search_paths[count] == NULL)
-                {
-                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
-                        return;
-                }
-                strcpy(search_paths[count], args[index]);
-                strcat(search_paths[count], "/");
-                
+                add_path(search_paths, count, args[index]);
                 index++;
                 count++;
         }
         // Even if path has no arguments, we clear the search paths
-        search_paths[count] = NULL;
-        // Note: empty search_paths[i] are 0x0 naturally
+        search_paths[count] = NULL;                     // Note: empty search_paths[i] starts 0x0
 }
+
 
 void select_search_path(char *path, char* name)
 {
         int count = 0;
         char temp[100] = {0};
-        // printf("SELECT SEARCH PATH FUNCTION\n");
-        // printf("NAME: %s\n", name);
         while (search_paths[count] != NULL)
         {
                 strcpy(temp, search_paths[count]);
                 strcat(temp, name);
                 
-                // printf("complete path searching for: %s\n", temp);
-                // char cwd[1024];
-                // getcwd(cwd, sizeof(cwd));
-                // printf("Current working directory: %s\n", cwd);
                 if (access(temp, X_OK) == 0)
                 {
                         strcpy(path, temp);
@@ -390,6 +545,7 @@ void select_search_path(char *path, char* name)
         }
 
 }
+
 
 // configure_redirection - check for redirection operators and modify the arg list to fit
 // PRECONDITION: args is a single process' command, therefore there shouldn't exist stuff after the filename
@@ -431,6 +587,7 @@ void configure_redirection(char **args)
         close(fd);
 }
 
+
 // Collapses groups of blank space into one
 // Between the last char and /0 space, delete any blank space
 // PRECONDITION: all space (group) positionings are correct
@@ -470,28 +627,22 @@ void collapse_white_space_group(char *dest, char *input)
         }
 }
 
-void add_bin_path_automatically()
-{
-        search_paths[0] = malloc(6);
-        if (search_paths[0] == NULL) {
-                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
-                exit(1);
-        }
-        strcpy(search_paths[0], "/bin/");
-        
-        search_paths[1] = malloc(9);
-        if (search_paths[1] == NULL) {
-                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
-                exit(1);
-        }
-        strcpy(search_paths[1], "/usr/bin/");
-        
-        search_paths[2] = malloc(7);
-        if (search_paths[2] == NULL) {
-                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
-                exit(1);
-        }
-        strcpy(search_paths[2], "/sbin/");
-        search_paths[3] = NULL;
+
+void add_path(char** search_paths, int index, const char* path) {
+    search_paths[index] = malloc(strlen(path) + 2);
+    if (search_paths[index] == NULL) {
+        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+        exit(1);
+    }
+    strcpy(search_paths[index], path);
+    strcat(search_paths[index], "/");
 }
 
+
+void add_bin_path_automatically()
+{
+    add_path(search_paths, 0, "/bin");
+    add_path(search_paths, 1, "/usr/bin");
+    add_path(search_paths, 2, "/sbin");
+    search_paths[3] = NULL;
+}

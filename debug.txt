@@ -1,9 +1,0 @@
-HEHE
-LMAO
-debug.txt
-input.txt
-output.txt
-shell
-shell.c
-shell.dSYM
-tests
