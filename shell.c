@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <sys/stat.h> 
+#include <sys/wait.h>
 #include <ctype.h>
 
 // Formatting
@@ -159,7 +160,7 @@ int main(int argc, char *argv[])
                                 }
                         }
 
-                        // Not a built in command
+                        // has a pipe in the external command
                         if (has_pipe)
                         {
                                 execute_piped_command(single_command);
@@ -189,10 +190,9 @@ int main(int argc, char *argv[])
                                         exit(1);                                                        // Exit the child process
                                 }
                                 // parent waits for children
-                                while (wait(NULL) > 0);
                         }
-
                 }
+                while (wait(NULL) > 0);
 
                 // TODO: ANALYSE CHANGED WAY OF FREEING MEMORY
                 // Free mem
@@ -256,19 +256,14 @@ void execute_piped_command(char **args)
                         if (i < pipe_count)
                         {
                                 dup2(pipes[i][1], STDOUT_FILENO);
-                        }
-                        else    // Last command can just use configure_redirection directly
-                        {
-                                configure_redirection(commands[i]);
-                        }
-                        
+                        }                
 
-                        // // Close all pipe fds
-                        // for (int j = 0; j < pipe_count; j++)
-                        // {
-                        //         close(pipes[j][0]);
-                        //         close(pipes[j][1]);
-                        // }
+                        // Close all pipe fds
+                        for (int j = 0; j < pipe_count; j++)
+                        {
+                                close(pipes[j][0]);
+                                close(pipes[j][1]);
+                        }
 
                         char path[CONCAT_PATH_MAX] = {0};
                         select_search_path(path, commands[i][0]);
