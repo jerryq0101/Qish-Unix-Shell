@@ -264,27 +264,106 @@ void execute_piped_command(char **args)
 
         // creates pipes for shared use
         int pipes[pipe_count][2];
-        for (int i = 0; i < pipe_count; i++)
+
+        // Make the pipes
+        for (size_t i = 0; i < pipe_count; i++)
         {
                 if (pipe(pipes[i]) < 0)
                 {
                         fprintf(stderr, ERROR_MESSAGE);
                         exit(1);
                 }
-                if (i == 0)                     // only set the write to
+        }
+        
+        // Setup individual redirection
+        for (int i = 0; i < pipe_count+1; i++)                  // Loop through the commands
+        {
+                if (i < pipe_count)
+                {
+                        commands[i].pipe_to_write_to = pipes[i][1];     // the current pipe's write end
+                }
+                if (i > 0)
+                {
+                        commands[i].pipe_to_read_from = pipes[i-1][0];  // the previous pipe's read end
+                }
+                // Each command should write to its corresponding pipe, except for the last one
+        }
+        commands[0].pipe_to_read_from = STDIN_FILENO;
+        commands[pipe_count].pipe_to_write_to = STDOUT_FILENO;
+
+
+        // Calling now
+        for (int i = 0; commands[i].command != NULL; i++)
+        {
+                struct Command current_command = commands[i];
+                if (current_command.need_redirection)
+                {
+                        // TODO: define a maximum for terminal output
+                        char buffer[4096];
+                        int bytes_read;
+                        
+                        int file_fd = open(current_command.file_name, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                        
+                        pid_t child = fork();
+                        if (child < 0)
+                        {
+                                fprintf(stderr, "FORK FAILED");
+                                return;
+                        }
+                        else if (child == 0)
+                        {
+                                dup2(current_command.pipe_to_read_from, STDIN_FILENO);
+                                close(current_command.pipe_to_read_from);
+                                close(current_command.personal_pipe[0]);
+                                dup2(current_command.personal_pipe[1], STDOUT_FILENO);
+                                close(current_command.personal_pipe[1]);
+
+                                char path[CONCAT_PATH_MAX] = {0};
+                                select_search_path(path, current_command.command[0]);
+
+                                execv(path, current_command.command);
+                                exit(1);
+                        }
+
+                        close(current_command.personal_pipe[1]);
+
+                        while ((bytes_read = read(current_command.personal_pipe[0], 
+                                buffer, 
+                                sizeof(buffer))))
+                        {
+                                write(file_fd, buffer, bytes_read);
+                                write(current_command.pipe_to_write_to, buffer, bytes_read);
+                        }
+
+                        close(current_command.personal_pipe[0]);
+                }
+                else
                 {
 
-                }
-                else if (i == pipe_count-1)     // set this element and the next element
-                {
+                        pid_t child = fork();
+                        if (child < 0)
+                        {
+                                fprintf(stderr, "FORK FAILED");
+                                return;
+                        }
+                        else if (child == 0)
+                        {
+                                dup2(current_command.pipe_to_read_from, STDIN_FILENO);
+                                close(current_command.pipe_to_read_from);
+                                dup2(current_command.pipe_to_write_to, STDOUT_FILENO);
+                                close(current_command.pipe_to_write_to);
+
+                                char path[CONCAT_PATH_MAX] = {0};
+                                select_search_path(path, current_command.command[0]);
+
+                                execv(path, current_command.command);
+                                exit(1);
+                        }
 
                 }
-
-                // Each command should write to its corresponding pipe
                 
 
         }
-
 
         // // Parent waits for all children to finish
         // for (int i = 0; i <= pipe_count; i++)
