@@ -240,25 +240,33 @@ void execute_piped_command(char **args)
                 }
         }
 
+        // Store child PIDs to wait for them later
+        pid_t child_pids[pipe_count + 1];
+
         // Create processes for each command
-        // need to handle redirection on each possible command
         for (int i = 0; i <= pipe_count; i++)
         {
                 pid_t pid = fork();
+                if (pid < 0) {
+                        fprintf(stderr, ERROR_MESSAGE);
+                        exit(1);
+                }
+                
                 if (pid == 0)
                 {
-                        // TODO: its not feeding to wc right now
-                        // setup child redirections
-                        if (i > 0) // if there is a pipe before it, take from its stdin
+                        // Child process
+                        
+                        // Set up pipe redirections
+                        if (i > 0) // Not the first command
                         {
                                 dup2(pipes[i - 1][0], STDIN_FILENO);
                         }
-                        if (i < pipe_count)
+                        if (i < pipe_count) // Not the last command
                         {
                                 dup2(pipes[i][1], STDOUT_FILENO);
-                        }                
+                        }
 
-                        // Close all pipe fds
+                        // Close all pipe ends in child
                         for (int j = 0; j < pipe_count; j++)
                         {
                                 close(pipes[j][0]);
@@ -268,20 +276,29 @@ void execute_piped_command(char **args)
                         char path[CONCAT_PATH_MAX] = {0};
                         select_search_path(path, commands[i][0]);
                         execv(path, commands[i]);
+                        
+                        // If execv fails
+                        fprintf(stderr, ERROR_MESSAGE);
                         exit(1);
                 }
-                
+                else
+                {
+                        // Parent process
+                        child_pids[i] = pid;
+                        
+                        // Close pipe ends that aren't needed anymore
+                        if (i > 0)
+                        {
+                                close(pipes[i-1][0]);
+                                close(pipes[i-1][1]);
+                        }
+                }
+        }
 
-                // Parent process: close all pipe fds and wait for children
-                for (int i = 0; i < pipe_count; i++)
-                {
-                        close(pipes[i][0]);
-                        close(pipes[i][1]);
-                }
-                for (int i = 0; i <= pipe_count; i++)
-                {
-                        wait(NULL);
-                }
+        // Parent waits for all children to finish
+        for (int i = 0; i <= pipe_count; i++)
+        {
+                waitpid(child_pids[i], NULL, 0);
         }
 }
 
