@@ -23,9 +23,10 @@ void handle_exit(char **args);
 // Finding the correct PATH dir
 void select_search_path(char *path, char* name);
 
-// freeing stuff
+// Freeing stuff
 void free_nested_arr(char** nested);
 
+// TODO: Duplicated redirection checking functionality in exec_piped_command and here
 // Input redirection
 void configure_redirection(char **args);
 
@@ -44,6 +45,7 @@ void add_path(char** search_paths, int index, const char* path);
 #define MAXPATHS 100
 #define CONCAT_PATH_MAX 100
 #define MAX_PARALLEL_COMMANDS 100
+#define MAX_REDIRECTED_OUTPUT 4096
 #define ERROR_MESSAGE "An error has occurred\n"
 
 char* search_paths[MAXPATHS * sizeof(char*)];
@@ -59,10 +61,10 @@ int main(int argc, char *argv[])
         int batch_mode = 0;
 
 
-        // if (freopen("input.txt", "r", stdin) == NULL)
-        // {
-        //         perror("error opening stdin");
-        // }
+        if (freopen("input.txt", "r", stdin) == NULL)
+        {
+                perror("error opening stdin");
+        }
 
         // Handle Batch mode
         if (argc > 1)
@@ -119,7 +121,6 @@ int main(int argc, char *argv[])
                 // Check for parallel commands
                 char** command_arg_list[MAX_PARALLEL_COMMANDS] = {0};
                 int parallel_commands = configure_parallel(command_arg_list, args);
-
 
                 // Create a pipe
                 int p[2];
@@ -298,8 +299,7 @@ void execute_piped_command(char **args)
                 struct Command current_command = commands[i];
                 if (current_command.need_redirection)
                 {
-                        // TODO: define a maximum for terminal output
-                        char buffer[4096];
+                        char buffer[MAX_REDIRECTED_OUTPUT];
                         int bytes_read;
                         
                         int file_fd = open(current_command.file_name, O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -334,12 +334,11 @@ void execute_piped_command(char **args)
                                 write(file_fd, buffer, bytes_read);
                                 write(current_command.pipe_to_write_to, buffer, bytes_read);
                         }
-
+                        close(current_command.pipe_to_write_to);
                         close(current_command.personal_pipe[0]);
                 }
-                else
+                else    // No redirection, (personal_pipe is 0, file_name is 0)
                 {
-
                         pid_t child = fork();
                         if (child < 0)
                         {
@@ -361,6 +360,7 @@ void execute_piped_command(char **args)
                         }
 
                 }
+                // Wait for child to complete, then close the pipes that this child needed
                 wait(NULL);
                 close(current_command.pipe_to_read_from);
                 close(current_command.pipe_to_write_to);
