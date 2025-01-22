@@ -35,8 +35,8 @@ This passes the WISH tests. The `tests/`, `tests-out/`, `tester/`, `test-shell.s
 
 ## Performance
 
-<strong>Qish Overall average: 0.325ms\
-Bash Overall average: 30.761ms\</strong>
+Qish Overall average: <strong>0.325ms</strong>\
+Bash Overall average: <strong>30.761ms</strong>\
 \
 Interestingly, this shell performs quite fast despite the lack of optimization relative to bash. However, this is likely due to the lack of functionalities of the shell. (E.g. No histories, remote connection capabilities, etc...).
 
