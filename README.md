@@ -25,7 +25,7 @@ Here are some commands to try out:
 
 ## Performance
 
-Interestingly, this shell performs quite fast despite the lack of optimization relative to bash. However, this is likely due to the lack of functionalities of the shell. (E.g. No histories, remote connection capabilities, etc...).
+Interestingly, this shell performs quite fast relative to bash despite the lack of optimization. However, this is likely due to the lack of functionalities of the shell. (E.g. No histories, remote connection capabilities, etc...).
 
 More details on the tests can be found in `performance.c`. Try to run it!
 
