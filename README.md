@@ -19,7 +19,7 @@ Qish is an implementation of [OSTEP's wish shell](https://github.com/remzi-arpac
 - <strong>Additional pipe functionality</strong> (e.g. `ls&ls >output.txt |wc -l`)
 
 
-Here are some commands to try out:
+Here are [some commands](https://mally.stanford.edu/~sr/computing/basic-unix.html) to try out:
 ![Commands to try out](./commands_to_try.png)
 
 
