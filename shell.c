@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
                         exit(0);
                 }
 
-                if (input[0] == '\n')   // Handle input termination on batch mode
+                if (input[0] == EOF)   // Handle input termination on batch mode
                 {
                         exit(0);
                 }
@@ -189,7 +189,6 @@ int main(int argc, char *argv[])
                 while (wait(NULL) > 0);
 
                 // TODO: ANALYSE CHANGED WAY OF FREEING MEMORY
-                // Free mem
                 free_nested_arr(args);
                 free(args);
         }
