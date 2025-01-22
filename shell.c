@@ -169,12 +169,11 @@ int main(int argc, char *argv[])
                                 }
                                 else if (process == 0)
                                 {
-                                        char path[CONCAT_PATH_MAX] = {0};                                     // 100 characters MAX
+                                        char path[CONCAT_PATH_MAX] = {0};
                                         select_search_path(path, single_command[0]);                          // finds suitable search path out of search_path
                                 
                                         // check the final element of the command for |
                                         // This signals the first element giving the output
-                                        
                                         configure_redirection(single_command);                        
                                         execv(path, single_command);
                                         
