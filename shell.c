@@ -60,12 +60,6 @@ int main(int argc, char *argv[])
         }
         int batch_mode = 0;
 
-
-        if (freopen("input.txt", "r", stdin) == NULL)
-        {
-                perror("error opening stdin");
-        }
-
         // Handle Batch mode
         if (argc > 1)
         {
@@ -76,7 +70,7 @@ int main(int argc, char *argv[])
                 }
                 batch_mode = 1;
 
-                int fd = open(argv[1], O_RDONLY);
+                int fd;
                 if ((fd = open(argv[1], O_RDONLY)) == -1)
                 {
                         write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
@@ -93,11 +87,17 @@ int main(int argc, char *argv[])
                 if (!batch_mode)                                        // Interactive mode prompt
                 {
                         printf("process> ");
+                        fflush(stdout);
                 }
                 size_t variable = (long) MAXLINE;
-                getline(&input, &variable, stdin);
+                ssize_t read = getline(&input, &variable, stdin);
 
-                if (*input == EOF || input == NULL || *input == '\0')   // Handle input termination on batch mode
+                if (read == -1)
+                {
+                        exit(0);
+                }
+
+                if (input[0] == '\n')   // Handle input termination on batch mode
                 {
                         exit(0);
                 }
@@ -122,13 +122,6 @@ int main(int argc, char *argv[])
                 char** command_arg_list[MAX_PARALLEL_COMMANDS] = {0};
                 int parallel_commands = configure_parallel(command_arg_list, args);
 
-                // Create a pipe
-                int p[2];
-                if (pipe(p) < 0)
-                {
-                        fprintf(stderr, ERROR_MESSAGE);
-                        continue;
-                }
                 
                 for (int i = 0; command_arg_list[i] != NULL; i++)
                 {
