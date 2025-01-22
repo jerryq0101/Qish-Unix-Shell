@@ -2,30 +2,35 @@
 
 Qish is an implementation of [OSTEP's wish shell](https://github.com/remzi-arpacidusseau/ostep-projects/blob/master/processes-shell/README.md) with additional pipe operator support. Thanks for visiting, and I would love for you to try the program out and test its limitations!
 
-The `tests/`, `tests-out/`, `tester/`, `test-shell.sh` folders are from the OSTEP repo to help me do correctness tests.
-`bash test-shell.sh` to run these tests.
 
-## Project Functionalities:
+## Contents
+- [Project Functionalities](#Functionalities)
+- [OSTEP Tests](#Tests)
+- [Performance](#Performance)
+- [Contributing](#contributing)
+
+
+## Functionalities:
 - Built in command: exit, cd, path
 - File redirection: >
 - Parallel Commands: &
 - Simple Program Errors
 - Should run almost any exec where its on simple input and output
-- Batch mode `./shell input.txt` (take input directly from a file instead)
-- <strong>My additional pipe (|) functionality</strong> (e.g. `ls&ls >output.txt |wc -l`)
+- <strong>Additional pipe functionality</strong> (e.g. `ls&ls >output.txt |wc -l`)
 
 
 Here are some commands to try out:
 ![Commands to try out](./commands_to_try.png)
 
 
-## This passes the wish tests. 
+## Tests 
+This passes the WISH tests.
 ![wish tests passing](./wish_tests_out.png)
 
 
 ## Performance
 
-Interestingly, this shell performs quite fast relative to bash despite the lack of optimization. However, this is likely due to the lack of functionalities of the shell. (E.g. No histories, remote connection capabilities, etc...).
+Interestingly, this shell performs quite fast despite the lack of optimization relative to bash. However, this is likely due to the lack of functionalities of the shell. (E.g. No histories, remote connection capabilities, etc...).
 
 More details on the tests can be found in `performance.c`. Try to run it!
 
