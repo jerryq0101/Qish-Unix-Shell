@@ -11,7 +11,8 @@ The `tests/`, `tests-out/`, `tester/`, `test-shell.sh` folders are from the OSTE
 - Parallel Commands: &
 - Simple Program Errors
 - Should run almost any exec where its on simple input and output
-- <strong>Additional pipe functionality</strong> (e.g. `ls&ls >output.txt |wc -l`)
+- Batch mode `./shell input.txt` (take input directly from a file instead)
+- <strong>My additional pipe functionality</strong> (e.g. `ls&ls >output.txt |wc -l`)
 
 
 Here are some commands to try out:
