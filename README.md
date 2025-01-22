@@ -10,6 +10,7 @@ Qish is an implementation of [OSTEP's wish shell](https://github.com/remzi-arpac
 - [Contributing](#contributing)
 
 
+
 ## Functionalities:
 - Built in command: exit, cd, path
 - File redirection: >
@@ -23,9 +24,12 @@ Here are some commands to try out:
 ![Commands to try out](./commands_to_try.png)
 
 
+
 ## Tests 
 This passes the WISH tests.
 ![wish tests passing](./wish_tests_out.png)
+
+
 
 
 ## Performance
