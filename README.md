@@ -2,6 +2,9 @@
 
 Qish is an implementation of [OSTEP's wish shell](https://github.com/remzi-arpacidusseau/ostep-projects/blob/master/processes-shell/README.md) with additional pipe operator support. Thanks for visiting, and I would love for you to try the program out and test its limitations!
 
+The tests/, tests-out/ tester/ folders are from the OSTEP repo to help me do correctness tests.
+`bash test-shell.sh` to run these tests.
+
 ## Project Functionalities:
 - Built in command: exit, cd, path
 - File redirection: >
