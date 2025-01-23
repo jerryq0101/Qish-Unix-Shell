@@ -17,9 +17,9 @@ then run the executable `./shell`
 - Built in command: exit, cd, path
 - File redirection: >
 - Parallel Commands: &
+- <strong>Pipe functionality</strong> (e.g. `ls&ls >output.txt |wc -l`)
 - Simple Program Errors
-- Should run almost any exec where its on simple input and output
-- <strong>Additional pipe functionality</strong> (e.g. `ls&ls >output.txt |wc -l`)
+- External Commands: Should run almost any exec where it's input and output
 
 
 Here are [some commands](https://mally.stanford.edu/~sr/computing/basic-unix.html) to try out:
