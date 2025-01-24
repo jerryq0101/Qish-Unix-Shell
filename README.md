@@ -19,7 +19,7 @@ then run the executable `./shell`
 - Parallel Commands: &
 - <strong>Pipe functionality</strong> (e.g. `ls&ls >output.txt |wc -l`)
 - Simple Program Errors
-- External Commands: Should run almost any exec where it's input and output
+- External Commands: Should run almost any exec where it's input and output (additionally, even man and ssh work)
 
 
 Here are [some commands](https://mally.stanford.edu/~sr/computing/basic-unix.html) to try out:
