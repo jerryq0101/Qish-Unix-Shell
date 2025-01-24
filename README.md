@@ -41,7 +41,7 @@ This passes the WISH tests. The `tests/`, `tests-out/`, `tester/`, `test-shell.s
 Qish Overall average: <strong>0.325ms</strong>\
 Bash Overall average: <strong>30.761ms</strong>\
 \
-Interestingly, this shell performs quite fast despite the lack of optimization relative to bash. However, this is likely due to the lack of functionalities of the shell. (E.g. No histories, but it can actually run ssh and man pages).
+Interestingly, this shell performs quite fast despite the lack of optimization relative to bash. However, this is likely due to the lack of functionalities of the shell. (E.g. No histories from up down arrow).
 
 More details on the tests can be found in `performance.c`. Try to run it!
 
