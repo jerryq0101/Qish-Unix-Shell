@@ -195,15 +195,45 @@ This was a pain in the ass.
 As mentioned above, the main block of memory that is operated upon is the `char **args` block of memory.
 
 
-Problems:
-1. My parsing strategy causes the modification of the pointer contents in `char **args`, due to need of termination of each segment of a command.
+#### Problems
+1. My parsing strategy causes the modification of the total number of malloc'ed elements in `char **args`, due to parsing for non-properly formatted operators. 
+
+For example, "ls -l| wc" would have count 3 and then would have count 4 after parsed.
+
+The args would also be replaced and set to a longer array of strings when doing `parse_operator_in_args`.
+
+2. Operators in args are not caught at the end of each loop for freeing because they are set to NULL for proper command formatting. 
 
 For example, for parallel commands, as execv needs null-terminated string arrays to be passed in for each command. e.g. "ls", "-l", "&", "ls" is turned into "ls", "-l", NULL, "ls". For each command's execution, I would pass in the pointer referring to the first "ls" and the second "ls".
 
-2. `parse_operator_in_args` also modifies the strings inside of each command via strdup (which is sometimes replaced). 
-
-3. Point 2 also occurs in other functions associateed with parsing.
+3. Other positions of strdup, when not used, should all be freed 
 
 
-Therefore, 
+#### My strategy
+
+Since `args` is the memory block that stores the information for all commands and their parsed form, we can devise a iterative mechanism to free `args` at each end of loop.
+
+From `Line 194 - 196`, we free the args memory block using `free_args_elements`.
+
+Ok, but just freeing it naively until the memory is not a NULL element will not work due to <strong> Problem 1</strong>.
+
+OK, so there may exist elements after NULL pointers, so we can just check until MAXARGS length. But I found that malloc'd memory space might still contain random non-NULL garbage values, causing double-free errors.
+
+So, this ultimately needed a tracking mechanism for the total number of arguments that are in the args to free. Therefore, I implemented a counter mechanism globally using `number_of_args`. And, in `parse_operator_in_args`, whenever we are incrementing the size of new_args, I'd count the new number of arguments. Using the old global size, I'd free the old args array accordingly.
+
+This solves problem 1. 
+
+Problem 2 is an extension of problem 1. Although each part of args is freed at the end of each loop, some operators are set to NULL.
+
+Therefore, before the explicit set to NULL of the operator, we free the operator first.
+
+Examples: 
+`Line 479` - We free "&" in `configure_parallel` before set to NULL, which is meant to segregate processing by execv for each command.
+`Line 641` - We free "|" in `execute_piped_commands` before we set the pointer to it to NULL for proper execv formatting.
+`Line 666` - Free ">" before we set it to NULL for execv formatting. We didn't need to free the filename after it because the ending free loop in main will catch it.
+
+By explicitly freeing every operator string before we set it to null before we set that pointer position to NULL for execv processing, we prevent the memory leak.
+
+
+
 
