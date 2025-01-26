@@ -196,14 +196,14 @@ Several points:
 
 Initially I'd thought, ok I'd just create an array of pipes to pass information from one index to the next. And while parsing each command I could check for the existence of a redirection operator, and then send output of the program to both files.
 
-![pipe_strat](./pipe_strat_2.JPG)
+![pipe_strat](./pipe_strat_2.jpg)
 
 
 It turns out not possible to direct process out to both an output file and a pipe at the same time (Unless using tee which is a non unix native command).
 
 So, the idea was to implement a "personal pipe" for each of the separate commands. First, set my output for the process to the personal pipe. Then, read from the personal pipe into a buffer to pass it to the designated pipe which the next program reads from, AND, the output file for this specific command.
 
-![pipe_strat](./pipe_strat_1.JPG)
+![pipe_strat](./pipe_strat_1.jpg)
 
 And I think it worked.
 
