@@ -9,8 +9,7 @@ then run the executable `./shell`
 - [Project Functionalities](#Functionalities)
 - [OSTEP Tests](#Tests)
 - [Performance](#Performance)
-- [Contributing](#contributing)
-
+- [Code Structure and Design](#Code-Structure-and-Design)
 
 
 ## Functionalities:
@@ -28,7 +27,7 @@ Here are [some commands](https://mally.stanford.edu/~sr/computing/basic-unix.htm
 
 
 ## Tests 
-This passes the WISH tests. The `tests/`, `tests-out/`, `tester/`, `test-shell.sh` folders are from the OSTEP repo to help me do correctness tests.
+This passes the WISH correctness tests. The `tests/`, `tests-out/`, `tester/`, `test-shell.sh` folders are from the OSTEP repo to help me do correctness tests.
 `bash test-shell.sh` to run these tests.
 
 ![wish tests passing](./wish_tests_out.png)
@@ -43,67 +42,76 @@ Bash Overall average: <strong>30.761ms</strong>\
 \
 Interestingly, this shell performs quite fast despite the lack of optimization relative to bash. However, this is likely due to the lack of functionalities of the shell. (E.g. No histories from up down arrow).
 
-More details on the tests can be found in `performance.c`. Try to run it!
+The tests cover a variety of operations including basic file operations, file content operations, directory manipulation, complex piping operations, to system information.
 
-```
+More details on the tests can be found in `performance.c`.
+
+```benchmark.txt
 Shell Performance Benchmark Results
-Date: Wed Jan 22 10:51:45 2025
+Date: Sun Jan 26 15:24:02 2025
 Number of iterations per test: 100
 
 
 Results for Bash:
 ----------------------------------------
 Basic Command Tests:
-  Parallel execution time: 109.166 ms
-  Redirection time: 2.915 ms
-  Built-in command time: 2.237 ms
+  Parallel execution time: 108.886 ms
+  Redirection time: 2.651 ms
+  Built-in command time: 2.014 ms
 
 External Command Tests:
 Command                         Time (ms)
 ----------------------------------------
-ls                                  3.614
-wc shell.c                          3.542
-more shell.c                        3.830
-diff shell.c performance.c           5.734
-mkdir TEST                          2.912
-rmdir TEST                          2.976
-ls -R /etc                          6.305
-ps aux                             51.802
-uname -a                            2.554
-ls -1 /etc | wc -l                  3.997
+Simple directory listing (ls)                                           3.322
+File Content Analysis (wc shell.c)                                      3.643
+File Content Viewing (more shell.c)                                     3.793
+File Comparison (diff shell.c performance.c)                            5.720
+Directory Creation (mkdir TEST)                                         3.025
+Directory Removal (rmdir TEST)                                          3.747
+Recursive directory traversal (ls -R /etc)                              6.848
+Process Information - Heavy system call (ps aux)                        51.784
+System information (uname -a)                                           2.564
+Directory listing with pipe and counting (ls -1 /etc | wc -l)           4.267
+sort unique with output (cat shell.c | sort | uniq > uniq.txt)          7.842
+remove test file, if exists (rm -f uniq.txt)                            3.133
+
 
 Summary:
-  Average external command time: 8.727 ms
-  Overall average: 30.761 ms
+  Average external command time: 8.871 ms
+  Overall average: 30.606 ms
 
 
 Results for qish:
 ----------------------------------------
 Basic Command Tests:
-  Parallel execution time: 0.358 ms
-  Redirection time: 0.303 ms
-  Built-in command time: 0.299 ms
+  Parallel execution time: 0.302 ms
+  Redirection time: 0.294 ms
+  Built-in command time: 0.289 ms
 
 External Command Tests:
 Command                         Time (ms)
 ----------------------------------------
-ls                                  0.294
-wc shell.c                          0.288
-more shell.c                        0.285
-diff shell.c performance.c           0.290
-mkdir TEST                          0.493
-rmdir TEST                          0.293
-ls -R /etc                          0.404
-ps aux                              0.370
-uname -a                            0.354
-ls -1 /etc | wc -l                  0.309
+Simple directory listing (ls)                                           0.296
+File Content Analysis (wc shell.c)                                      0.302
+File Content Viewing (more shell.c)                                     0.312
+File Comparison (diff shell.c performance.c)                            0.318
+Directory Creation (mkdir TEST)                                         0.314
+Directory Removal (rmdir TEST)                                          0.329
+Recursive directory traversal (ls -R /etc)                              0.324
+Process Information - Heavy system call (ps aux)                        0.293
+System information (uname -a)                                           0.288
+Directory listing with pipe and counting (ls -1 /etc | wc -l)           0.295
+sort unique with output (cat shell.c | sort | uniq > uniq.txt)          0.341
+remove test file, if exists (rm -f uniq.txt)                            0.323
 
 Summary:
-  Average external command time: 0.338 ms
-  Overall average: 0.325 ms
+  Average external command time: 0.307 ms
+  Overall average: 0.298 ms
+
+
 ```
 
-## Code Structure and Design
+## Code-Structure-and-Design
 
 (This serves to help me remember and for interested people to quickly understand structure)\
 After running, the code operates as a continuous while loop. First, fetching the line that the user types in. Then, does (a lot of) parsing, which is the majority of the code.
@@ -145,7 +153,7 @@ Keep in mind that the additional challenge was that these operators were allowed
 
 For example `ls>filename.txt` or `ls >filename.txt` or `ls> filename.txt` can all be possible. Something like `ls&ls &ls& ls` is also possible.
 
-In `split_input_redir_operator`, we first add each space segregated character sequence (as a string) into args, while at the same time handling redirection operator. (To Future: There could be a change in implementation here to allow for arbitrary amounts of > operators)
+In `split_input_redir_operator`, we first add each space segregated character sequence (as a string) into args, while at the same time handling redirection operator. (FUTURE: There could be a change in implementation here to allow for arbitrary amounts of > operators)
 
 `parse_operator_in_args(&args, an operator either '&' or '|')` then does operation on each string argument of `char **args` to detect existence of operator symbol inside.
 
@@ -187,13 +195,11 @@ So, the idea was to implement a "personal pipe" for each of the separate command
 
 And I think it worked.
 
-
 ### Memory Management
 
 This was a pain in the ass. 
 
 As mentioned above, the main block of memory that is operated upon is the `char **args` block of memory.
-
 
 #### Problems
 1. My parsing strategy causes the modification of the total number of malloc'ed elements in `char **args`, due to parsing for non-properly formatted operators. 
@@ -202,11 +208,13 @@ For example, "ls -l| wc" would have count 3 and then would have count 4 after pa
 
 The args would also be replaced and set to a longer array of strings when doing `parse_operator_in_args`.
 
-2. Operators in args are not caught at the end of each loop for freeing because they are set to NULL for proper command formatting. 
+2. Operators in args are not free'd at the end of each loop for freeing because they are set to NULL for proper command formatting. 
 
 For example, for parallel commands, as execv needs null-terminated string arrays to be passed in for each command. e.g. "ls", "-l", "&", "ls" is turned into "ls", "-l", NULL, "ls". For each command's execution, I would pass in the pointer referring to the first "ls" and the second "ls".
 
-3. Other positions of strdup, when not used, should all be freed 
+(FUTURE: I could've just used string literals for operators when parsing them, then I don't need to free)
+
+3. Other miscellancious cases
 
 
 #### My strategy
@@ -228,12 +236,15 @@ Problem 2 is an extension of problem 1. Although each part of args is freed at t
 Therefore, before the explicit set to NULL of the operator, we free the operator first.
 
 Examples: 
-`Line 479` - We free "&" in `configure_parallel` before set to NULL, which is meant to segregate processing by execv for each command.
+`Line 479` - We free "&" in `configure_parallel` before the set to NULL, which is meant to segregate processing by execv for each command.
 `Line 641` - We free "|" in `execute_piped_commands` before we set the pointer to it to NULL for proper execv formatting.
 `Line 666` - Free ">" before we set it to NULL for execv formatting. We didn't need to free the filename after it because the ending free loop in main will catch it.
 
-By explicitly freeing every operator string before we set it to null before we set that pointer position to NULL for execv processing, we prevent the memory leak.
+By explicitly freeing every operator string before we set that pointer position to NULL for execv processing, we prevent the memory leak when.
 
 
-
+Problem 3 is the other cases:
+- Processing and freeing paths
+- Freeing input at the end
+- Freeing function independent strdup variables by themselves (e.g. the `file_name` part of the struct in `execute_piped_command`)
 
