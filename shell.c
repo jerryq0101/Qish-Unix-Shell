@@ -23,8 +23,9 @@ int configure_parallel(char ***arg_list, char **args);
 // Built-in-command handlers
 void handle_cd(char **args);
 void handle_path(char **args);
-void handle_exit(char **args);
+void handle_exit(char **args, char* input);
 void add_path(char** search_paths, int index, const char* path);
+void free_search_paths();
 
 // Initial add path Helper 
 void add_bin_path_automatically();
@@ -33,7 +34,7 @@ void add_bin_path_automatically();
 void select_search_path(char *path, char* name);
 
 // Freeing helper
-void free_nested_arr(char** nested);
+void free_args_elements(char** nested);
 
 // Executing piped commands
 void execute_piped_command(char **args);
@@ -47,6 +48,7 @@ void execute_piped_command(char **args);
 #define ERROR_MESSAGE "An error has occurred\n"
 
 char* search_paths[MAXPATHS * sizeof(char*)];
+int number_of_args = 0;
 
 int main(int argc, char *argv[])
 {
@@ -133,7 +135,7 @@ int main(int argc, char *argv[])
                         // Check if built in command (exit, cd, path)
                         if (strcmp("exit", single_command[0]) == 0)
                         {
-                                handle_exit(single_command);
+                                handle_exit(single_command, input);
                                 continue;
                         }
                         if (strcmp("cd", single_command[0]) == 0)
@@ -161,8 +163,6 @@ int main(int argc, char *argv[])
                         if (has_pipe)
                         {
                                 execute_piped_command(single_command);
-                                
-                                // Execute Piped command handles freeing by itself.
                         }
                         else
                         {
@@ -187,20 +187,20 @@ int main(int argc, char *argv[])
                                         write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                                         exit(1);                                                        // Exit the child process
                                 }
-
-                                // Free the single command
-                                wait(NULL);
-                                free(single_command);
                         }
                 }
-                // TODO: Should not free all commands outside of the loop, but rather free them after each iteration
-                
-                // Free memory block of arguments' pointers.
+                // Note: Should free the entire args block together, since all allocated memory are here
+                // Free the args block
+                while (wait(NULL) > 0);
+                free_args_elements(args);
+                free(args);
         }
         // Free global vars at the end
-        free_nested_arr(search_paths);
+        // free_nested_arr(search_paths);
+        free_search_paths();
         free(input);
 }
+
 
 ////// FORMATTING
 
@@ -223,6 +223,7 @@ void split_input_redir_operator(char* parsed_input, char** args)
                         // Case 1: token is just ">" 
                         if (strlen(token) == 1) {
                                 args[arg_count++] = strdup(">");
+                                number_of_args++;       // Memory Counter
                                 continue;
                         }
                         
@@ -230,6 +231,7 @@ void split_input_redir_operator(char* parsed_input, char** args)
                         if (redirect == token) {
                                 args[arg_count++] = strdup(">");
                                 args[arg_count++] = strdup(redirect + 1);
+                                number_of_args+=2;       // Memory counter
                                 continue;
                         }
                         
@@ -238,6 +240,7 @@ void split_input_redir_operator(char* parsed_input, char** args)
                                 *redirect = '\0';  // Split at >
                                 args[arg_count++] = strdup(token);
                                 args[arg_count++] = strdup(">");
+                                number_of_args+=2;       // Memory counter
                                 continue;
                         }
                         
@@ -246,10 +249,12 @@ void split_input_redir_operator(char* parsed_input, char** args)
                         args[arg_count++] = strdup(token);
                         args[arg_count++] = strdup(">");
                         args[arg_count++] = strdup(redirect + 1);
+                        number_of_args+=3;       // Memory counter
                         continue;
                 }
                 // Normal token without >
                 args[arg_count++] = strdup(token);
+                number_of_args++;       // Memory Counter
         }
         args[arg_count] = NULL;
 }
@@ -320,6 +325,7 @@ void parse_operator_in_args(char ***args, const char symbol)
         
         int index = 0;
         int new_args_index = 0;
+        int temp_number_of_args = 0;
 
         char** new_args = malloc(MAXARGS * sizeof(char *));
         char** dereferenced_args = *args;
@@ -336,6 +342,7 @@ void parse_operator_in_args(char ***args, const char symbol)
                         if (strlen(current) == 1)
                         {
                                 new_args[new_args_index++] = strdup(symbol_str_form);
+                                temp_number_of_args++;       // Memory Counter
                                 index++;
                                 continue;
                         }
@@ -348,11 +355,12 @@ void parse_operator_in_args(char ***args, const char symbol)
                                         if (*current != '\0')            // Case: if there are more characters at this point
                                         {
                                                 new_args[new_args_index++] = strdup(current);
+                                                temp_number_of_args++;       // Memory Counter
                                         }
                                         break;
                                 }
                                 
-                                // FOR MEMORY CONSIDERATIONS: save parallel first
+                                // FOR MEMORY: save parallel original character first
                                 char temp = *parallel;
                                 
                                 // Case: there are more symbolss
@@ -363,27 +371,31 @@ void parse_operator_in_args(char ***args, const char symbol)
                                 if (*current != '\0')
                                 {
                                         new_args[new_args_index++] = strdup(current);
+                                        temp_number_of_args++;       // Memory Counter
                                 }
                                 
                                 // add the symbol token
                                 new_args[new_args_index++] = strdup(symbol_str_form);
+                                temp_number_of_args++;       // Memory Counter
                                 
                                 current = parallel+1;
 
-                                // FOR MEMORY CONSIDERATIONS: set parallel back to its original value
+                                // FOR MEMORY: set parallel back to original value
                                 *parallel = temp;
                         }
                 }
                 else
                 {
                         new_args[new_args_index++] = strdup(dereferenced_args[index]);
+                        temp_number_of_args++;       // Memory Counter
                 }
                 index++;
         }
         new_args[new_args_index] = NULL;
 
-        free_nested_arr(dereferenced_args);
+        free_args_elements(dereferenced_args);
         free(*args);
+        number_of_args = temp_number_of_args;
         *args = new_args;
 }
 
@@ -416,12 +428,11 @@ void configure_redirection(char **args)
         
         // Delete redirection operator by null termination
         free(args[count]);
-        free(args[count+1]);
         args[count] = NULL;
         
         // Setup redirection
-        // Note: *(args+count) is > character
-        int fd = open(*(args+count+1), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        // Note: args[count] is >
+        int fd = open(args[count+1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
                 write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                 exit(1);
@@ -488,16 +499,21 @@ void handle_cd(char **args)
 }
 
 
-void handle_exit(char **args)
+void handle_exit(char **args, char* input)
 {
         // since we got rid of any spaces, any existence of non space character must be at the second arg
         char *second_arg = args[1];
-
         if (second_arg != NULL)
         {
                 write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
-                return;
         }
+
+        free_args_elements(args);
+        free(args);
+
+        free_search_paths();
+
+        free(input);
         exit(0);
 }
 
@@ -507,6 +523,7 @@ void handle_path(char **args)
 {
         int count = 0;
         int index = 1;
+        free_search_paths();
         while (args[index] != NULL)
         {
                 add_path(search_paths, count, args[index]);
@@ -519,14 +536,24 @@ void handle_path(char **args)
 
 
 // add_path - adds path to current available search_paths global array
-void add_path(char** search_paths, int index, const char* path) {
-    search_paths[index] = malloc(strlen(path) + 2);
-    if (search_paths[index] == NULL) {
-        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
-        exit(1);
-    }
-    strcpy(search_paths[index], path);
-    strcat(search_paths[index], "/");
+void add_path(char** search_paths, int index, const char* path)
+{
+        search_paths[index] = malloc(strlen(path) + 2);
+        if (search_paths[index] == NULL) {
+                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                exit(1);
+        }
+        strcpy(search_paths[index], path);
+        strcat(search_paths[index], "/");
+}
+
+
+void free_search_paths()
+{
+        for (int i = 0; search_paths[i] != NULL; i++)
+        {
+                free(search_paths[i]);
+        }
 }
 
 
@@ -562,13 +589,13 @@ void select_search_path(char *path, char* name)
 }
 
 
-// free_nested_arr - frees nested's strings, not nested itself
-void free_nested_arr(char** nested)
+// free_args_elements - frees nested's strings, not nested itself
+void free_args_elements(char** nested)
 {
-        // free arguments' memory
-        for (int i = 0; nested[i] != NULL; i++)
-        {
-                free(nested[i]);
+        for (int i = 0; i < number_of_args; i++) {
+                if (nested[i] != NULL) {
+                    free(nested[i]);
+                }
         }
 }
 
@@ -632,9 +659,8 @@ void execute_piped_command(char **args)
                                 commands[i].file_name = strdup(commands[i].command[j+1]);               // Get file name
                                 pipe(commands[i].personal_pipe);                                        // setup pipe of struct
                                 
-                                // Set the command to break here (Free the symbol and the filename)
+                                // Set the command to break here (And free the symbol and the filename)
                                 free(commands[i].command[j]);
-                                free(commands[i].command[j+1]);
                                 commands[i].command[j] = NULL;
                                 break;
                         }
@@ -742,7 +768,6 @@ void execute_piped_command(char **args)
                 wait(NULL);
                 close(current_command.pipe_to_read_from);
                 close(current_command.pipe_to_write_to);
-                free_nested_arr(current_command.command);
         }
         for (int i = 0; i < pipe_count+1; i++)
         {
