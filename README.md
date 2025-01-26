@@ -203,7 +203,7 @@ It turns out not possible to direct process out to both an output file and a pip
 
 So, the idea was to implement a "personal pipe" for each of the separate commands. First, set my output for the process to the personal pipe. Then, read from the personal pipe into a buffer to pass it to the designated pipe which the next program reads from, AND, the output file for this specific command.
 
-![pipe_strat](./pipe_strat_1.jpg)
+![pipe_strat](./pipe_s_1.jpg)
 
 And I think it worked.
 
