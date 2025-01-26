@@ -88,16 +88,18 @@ struct CommandTest {
     const char* name;
     const char* command;
 } external_tests[] = {
-    {"ls", "ls"},
-    {"wc shell.c", "wc shell.c"},
-    {"more shell.c", "more shell.c"},
-    {"diff shell.c performance.c", "diff shell.c performance.c"},
-    {"mkdir TEST", "mkdir TEST"},
-    {"rmdir TEST", "rmdir TEST"},
-    {"ls -R /etc", "ls -R /etc"},
-    {"ps aux", "ps aux"},
-    {"uname -a", "uname -a"},
-    {"ls -1 /etc | wc -l", "ls -1 /etc | wc -l"},
+    {"Simple directory listing (ls)", "ls"},
+    {"File Content Analysis (wc shell.c)", "wc shell.c"},
+    {"File Content Viewing (more shell.c)", "more shell.c"},
+    {"File Comparison (diff shell.c performance.c)", "diff shell.c performance.c"},
+    {"Directory Creation (mkdir TEST)", "mkdir TEST"},
+    {"Directory Removal (rmdir TEST)", "rmdir TEST"},
+    {"Recursive directory traversal (ls -R /etc)", "ls -R /etc"},
+    {"Process Information - Heavy system call (ps aux)", "ps aux"},
+    {"System information (uname -a)", "uname -a"},
+    {"Directory listing with pipe and counting (ls -1 /etc | wc -l)", "ls -1 /etc | wc -l"},
+    {"sort unique with output (cat shell.c | sort | uniq > uniq.txt)", "cat shell.c | sort | uniq > uniq.txt"},
+    {"remove test file, if exists (rm -f uniq.txt)", "rm -f uniq.txt"},
     {NULL, NULL}
 };
 
