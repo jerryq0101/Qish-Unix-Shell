@@ -92,13 +92,16 @@ int main(int argc, char *argv[])
 
                 if (read == -1)
                 {
-                        exit(0);
+                        break;
                 }
                 
-                // Handle input termination on batch mode
+                // Handle empty input line
+                // Case: Works for both batch mode since we simply skip \n as normal behaviour. If EOF is after \n, we will catch it in the next getline.
+                // Case: If \n happens, args was never allocated since we continue, and we don't free args outside of this loop. so no double free or leak.
+                // Outside of the while: input and paths, which are freed outside the while loop at the end.
                 if (input[0] == '\n')   
                 {
-                        exit(0);
+                        continue;
                 }
                 
                 char parsed_input[MAXLINE];
@@ -120,10 +123,11 @@ int main(int argc, char *argv[])
                 // Check for parallel commands
                 char** command_arg_list[MAX_PARALLEL_COMMANDS] = {0};
                 int parallel_commands = configure_parallel(command_arg_list, args);
-
                 
                 for (int i = 0; command_arg_list[i] != NULL; i++)
                 {
+                        // Single command refers to each NULL termination separated location in args.
+                        // Therefore, I don't need to free args again
                         char **single_command = command_arg_list[i];
 
                         // Check if built in command (exit, cd, path)
@@ -157,6 +161,8 @@ int main(int argc, char *argv[])
                         if (has_pipe)
                         {
                                 execute_piped_command(single_command);
+                                
+                                // Execute Piped command handles freeing by itself.
                         }
                         else
                         {
@@ -181,12 +187,15 @@ int main(int argc, char *argv[])
                                         write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
                                         exit(1);                                                        // Exit the child process
                                 }
+
+                                // Free the single command
+                                wait(NULL);
+                                free(single_command);
                         }
                 }
-                while (wait(NULL) > 0);
-                // Free input args
-                free_nested_arr(args);
-                free(args);
+                // TODO: Should not free all commands outside of the loop, but rather free them after each iteration
+                
+                // Free memory block of arguments' pointers.
         }
         // Free global vars at the end
         free_nested_arr(search_paths);
@@ -343,8 +352,10 @@ void parse_operator_in_args(char ***args, const char symbol)
                                         break;
                                 }
                                 
-
-                                // Case: there are more &s
+                                // FOR MEMORY CONSIDERATIONS: save parallel first
+                                char temp = *parallel;
+                                
+                                // Case: there are more symbolss
                                 // terminate this character in current string
                                 *parallel = '\0';
                                 
@@ -354,10 +365,13 @@ void parse_operator_in_args(char ***args, const char symbol)
                                         new_args[new_args_index++] = strdup(current);
                                 }
                                 
-                                // add the & token
+                                // add the symbol token
                                 new_args[new_args_index++] = strdup(symbol_str_form);
                                 
                                 current = parallel+1;
+
+                                // FOR MEMORY CONSIDERATIONS: set parallel back to its original value
+                                *parallel = temp;
                         }
                 }
                 else
@@ -401,6 +415,8 @@ void configure_redirection(char **args)
         }
         
         // Delete redirection operator by null termination
+        free(args[count]);
+        free(args[count+1]);
         args[count] = NULL;
         
         // Setup redirection
@@ -552,10 +568,7 @@ void free_nested_arr(char** nested)
         // free arguments' memory
         for (int i = 0; nested[i] != NULL; i++)
         {
-                if (nested[i] != NULL)
-                {
-                        free(nested[i]);
-                }
+                free(nested[i]);
         }
 }
 
@@ -595,6 +608,7 @@ void execute_piped_command(char **args)
         {
                 if (strcmp(args[i], "|") == 0)
                 {
+                        free(args[i]);
                         args[i] = NULL;
                         commands[++cmd_index] = (struct Command){&args[i + 1], 0, 0, 0, 0, 0};
                 }
@@ -607,11 +621,20 @@ void execute_piped_command(char **args)
                 {
                         if (strcmp(commands[i].command[j], ">") == 0)                      // found redirection operator
                         {
+                                // Check if there is a file name after the redirection operator
+                                if (commands[i].command[j+1] == NULL)
+                                {
+                                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                                        exit(1);
+                                }
+
                                 commands[i].need_redirection = 1;
                                 commands[i].file_name = strdup(commands[i].command[j+1]);               // Get file name
                                 pipe(commands[i].personal_pipe);                                        // setup pipe of struct
                                 
-                                // Set the command to break here
+                                // Set the command to break here (Free the symbol and the filename)
+                                free(commands[i].command[j]);
+                                free(commands[i].command[j+1]);
                                 commands[i].command[j] = NULL;
                                 break;
                         }
@@ -719,5 +742,13 @@ void execute_piped_command(char **args)
                 wait(NULL);
                 close(current_command.pipe_to_read_from);
                 close(current_command.pipe_to_write_to);
+                free_nested_arr(current_command.command);
+        }
+        for (int i = 0; i < pipe_count+1; i++)
+        {
+                if (commands[i].file_name) 
+                {
+                        free(commands[i].file_name);
+                }
         }
 }
