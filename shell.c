@@ -365,7 +365,7 @@ void parse_operator_in_args(char ***args, const char symbol)
                                 // FOR MEMORY: save parallel original character first
                                 char temp = *parallel;
                                 
-                                // Case: there are more symbolss
+                                // Case: there are more symbols
                                 // terminate this character in current string
                                 *parallel = '\0';
                                 
@@ -476,6 +476,7 @@ int configure_parallel(char ***arg_list, char **args)
                 }
                 else if (strcmp("&", args[index]) == 0)         // Case: yes &
                 {
+                        free(args[index]);
                         args[index] = NULL;
                         set_pointer = 1;
                         ended_with_amp = 1;
