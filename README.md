@@ -1,12 +1,16 @@
 # UNIX Shell (qish)
 
-Qish is an implementation of [OSTEP's wish shell](https://github.com/remzi-arpacidusseau/ostep-projects/blob/master/processes-shell/README.md) with additional pipe operator support. Thanks for visiting, and I would love for you to try the program out, test its limitations and give some feedback on the code!
+Qish is an implementation of [OSTEP's wish shell](https://github.com/remzi-arpacidusseau/ostep-projects/blob/master/processes-shell/README.md) <strong>with additional [pipe operator support](#pipe-implementation)</strong>.
+ 
+Thanks for visiting, and I would love for you to try the program out, and give some feedback on the code.
+
 
 Simply compile `./shell.c`\
 then run the executable `./shell`
 
 ## Contents
 - [Project Functionalities](#Functionalities)
+- [Known Limitations](#Known-Limitations)
 - [OSTEP Tests](#Tests)
 - [Performance](#Performance)
 - [Code Structure and Design](#Code-Structure-and-Design)
@@ -19,6 +23,12 @@ then run the executable `./shell`
 - <strong>Pipe functionality</strong> (e.g. `ls&ls >output.txt |wc -l`)
 - Simple Program Errors
 - External Commands: Should run almost any exec where it's input and output (additionally, even man and ssh work)
+
+## Known-Limitations
+- No command history (up/down arrows)
+- No nested redirection (e.g., `ls > out1.txt > out2.txt`)
+- No environment variable support
+- Limited path management
 
 
 Here are [some commands](https://mally.stanford.edu/~sr/computing/basic-unix.html) to try out:
@@ -37,12 +47,12 @@ This passes the WISH correctness tests. The `tests/`, `tests-out/`, `tester/`, `
 
 ## Performance
 
-Qish Overall average: <strong>0.325ms</strong>\
-Bash Overall average: <strong>30.761ms</strong>\
+Qish Overall average: <strong>0.298ms</strong>\
+Bash Overall average: <strong>30.606ms</strong>\
 \
-Interestingly, this shell performs quite fast despite the lack of optimization relative to bash. However, this is likely due to the lack of functionalities of the shell. (E.g. No histories from up down arrow).
+Interestingly, qish performs quite fast despite the lack of optimization relative to bash. However, this is likely due to the lack of functionalities of the shell. (E.g. No histories from up down arrow).
 
-The tests cover a variety of operations including basic file operations, file content operations, directory manipulation, complex piping operations, to system information.
+The tests cover a variety of operations including basic file operations, file content operations, directory manipulation, complex piping operations, to system information in attempt to simulate performance.
 
 More details on the tests can be found in `performance.c`.
 
@@ -114,7 +124,9 @@ Summary:
 ## Code-Structure-and-Design
 
 (This serves to help me remember and for interested people to quickly understand structure)\
-After running, the code operates as a continuous while loop. First, fetching the line that the user types in. Then, does (a lot of) parsing, which is the majority of the code.
+After starting, the code operates as a continuous while loop.
+
+First, fetching the line that the user types in. Then, does (a lot of) parsing, which is the majority of the code.
 
 `Since any shell implementation handles a set of internal commands (cd, exit, path...), and delegates external commands to external executables, the actual running of some program (such as ssh) is not done by the shell itself.`
 
@@ -176,7 +188,7 @@ This allows us to break commands up into parallel commands by the "&" operator. 
 
 ### Pipe Implementation
 
-The pipe implementation is the hardest engineering problem of the project. 
+The pipe implementation is the hardest engineering problem of the project, which is beyond OSTEP's specifications.
 
 Several points:
 - Information passing between proesses
@@ -225,7 +237,7 @@ From `Line 194 - 196`, we free the args memory block using `free_args_elements`.
 
 Ok, but just freeing it naively until the memory is not a NULL element will not work due to <strong> Problem 1</strong>.
 
-OK, so there may exist elements after NULL pointers, so we can just check until MAXARGS length. But I found that malloc'd memory space might still contain random non-NULL garbage values, causing double-free errors.
+Ok, there may exist elements after NULL pointers, so maybe we can just check until MAXARGS length. But I found that malloc'd memory space might still contain random non-NULL garbage values, which causes double-free errors.
 
 So, this ultimately needed a tracking mechanism for the total number of arguments that are in the args to free. Therefore, I implemented a counter mechanism globally using `number_of_args`. And, in `parse_operator_in_args`, whenever we are incrementing the size of new_args, I'd count the new number of arguments. Using the old global size, I'd free the old args array accordingly.
 
