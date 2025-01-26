@@ -396,7 +396,7 @@ void parse_operator_in_args(char ***args, const char symbol)
         new_args[new_args_index] = NULL;
 
         free_args_elements(dereferenced_args);
-        free(*args);
+        free(dereferenced_args);
         number_of_args = temp_number_of_args;
         *args = new_args;
 }
