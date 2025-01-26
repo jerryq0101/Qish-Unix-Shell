@@ -194,6 +194,7 @@ int main(int argc, char *argv[])
                 while (wait(NULL) > 0);
                 free_args_elements(args);
                 free(args);
+                number_of_args = 0;
         }
         // Free global vars at the end
         // free_nested_arr(search_paths);
@@ -346,7 +347,8 @@ void parse_operator_in_args(char ***args, const char symbol)
                                 index++;
                                 continue;
                         }
-                        while (1) {
+                        while (1)
+                        {
                                 parallel = strchr(current, symbol);
 
                                 // Case: there are no more &s
