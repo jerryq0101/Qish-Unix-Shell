@@ -159,23 +159,23 @@ Before all of this processing begins, the semi-processed input (like, ls -l|wc)i
 
 `char **args` is the main memory block of strings that every other parsing operation operates on.
 
-Keep in mind that the additional challenge was that these operators were allowed to have no space between neighboring commands.
-
 ### Parsing Strategy
 
 For example `ls>filename.txt` or `ls >filename.txt` or `ls> filename.txt` can all be possible. Something like `ls&ls &ls& ls` is also possible.
 
-In `split_input_redir_operator`, we first add each space segregated character sequence (as a string) into args, while at the same time handling redirection operator. (FUTURE: There could be a change in implementation here to allow for arbitrary amounts of > operators)
+The additional challenge was that these operators were allowed to have no space between neighboring commands.
 
-`parse_operator_in_args(&args, an operator either '&' or '|')` then does operation on each string argument of `char **args` to detect existence of operator symbol inside.
+In `split_input_redir_operator,` we first add each space-segregated character sequence (as a string) into args while at the same time handling the redirection operator. (FUTURE: There could be a change in implementation here to allow for arbitrary amounts of > operators)
+
+`parse_operator_in_args(&args, an-operator-either-'&'-or-'|')` then does an operation on each string argument of `char **args` to detect the existence of the operator symbol inside.
 
 It first initalizes a `char **new_args` array to add items to.
 
-Then, it uses a continuous parsing strategy to find the operator symbol inside a string argument. If there exists an operator, add to the new_args array, and continue searching inside the same string for more until there is non left. In addition, it adds the other relevant string contents, if exists, after the operator symbol, to the new_args array.
+Then, it uses a continuous parsing strategy to find the operator symbol inside a string argument. If there exists an operator, add to the new_args array, and continue searching inside the same string for more until there is non left. In addition, it adds the other relevant string contents, if they exist, after the operator symbol to the new_args array.
 
 At end we get a new_args array with segregated content for a specific operator.
 
-We can then run the function again with another operator.
+We can then run the `parse_operator_in_args` function again with another operator.
 
 For more information on the algorithm: `Line 321`
 
@@ -183,23 +183,23 @@ For more information on the algorithm: `Line 321`
 
 Using this parsing technique, we get an array of arguments with clearly segregated operators.
 
-This allows us to break commands up into parallel commands by the "&" operator. Which we run a for loop through.
+For example, this enables us to break commands up into parallel commands by the "&" operator. Which we run a for loop through.
 
 
 ### Pipe Implementation
 
-The pipe implementation is the hardest engineering problem of the project, which is beyond OSTEP's specifications.
+The pipe implementation was the hardest engineering problem of the project, and it was beyond OSTEP's specifications.
 
-Several points:
-- Information passing between proesses
-- Handling information passing and redirection operator for a command
+Points to solve:
+1. Output passing between consecutive commands
+2. Handling > operator and | at the same time
 
-Initially I'd thought, ok I'd just create an array of pipes to pass information from one index to the next. And while parsing each command I could check for the existence of a redirection operator, and then send output of the program to both files.
+Initially, I'd thought, ok, I'd create an array of pipes to pass information from one index to the next. While parsing each command, I could check for the existence of a redirection operator and then send the output of the program to both files.
 
 ![pipe_strat](./pipe_strat_2.jpg)
 
 
-It turns out not possible to direct process out to both an output file and a pipe at the same time (Unless using tee which is a non unix native command).
+It turns out that this solution was too naive. It's not possible to direct the process out to both an output file and a pipe at the same time (Unless using `tee`, which is a non-unix native command).
 
 So, the idea was to implement a "personal pipe" for each of the separate commands. First, set my output for the process to the personal pipe. Then, read from the personal pipe into a buffer to pass it to the designated pipe which the next program reads from, AND, the output file for this specific command.
 
@@ -209,20 +209,18 @@ And I think it worked.
 
 ### Memory Management
 
-This was a pain in the ass. 
+This was a pain in the 🍑.
 
-As mentioned above, the main block of memory that is operated upon is the `char **args` block of memory.
+As mentioned above, the main block of memory operated upon is the `char **args` block.
 
 #### Problems
 1. My parsing strategy causes the modification of the total number of malloc'ed elements in `char **args`, due to parsing for non-properly formatted operators. 
 
-For example, "ls -l| wc" would have count 3 and then would have count 4 after parsed.
+For example, the args of "ls -l| wc" would have size 3 and then would have size 4 after parsed. It is set to a more extended array of strings when doing `parse_operator_in_args`.
 
-The args would also be replaced and set to a longer array of strings when doing `parse_operator_in_args`.
+2. String constants in args are not free'd at the end of each loop because they are set to NULL for proper command formatting.
 
-2. Operators in args are not free'd at the end of each loop for freeing because they are set to NULL for proper command formatting. 
-
-For example, for parallel commands, as execv needs null-terminated string arrays to be passed in for each command. e.g. "ls", "-l", "&", "ls" is turned into "ls", "-l", NULL, "ls". For each command's execution, I would pass in the pointer referring to the first "ls" and the second "ls".
+For example, for parallel commands, as execv needs null-terminated string arrays to be passed in for each command. e.g. "ls", "-l", "&", "ls" is turned into "ls", "-l", NULL, "ls". For each command's execution, I would pass in the pointer referring to the initial string of the first command. The first pointer would be "ls" and the second is also "ls".
 
 (FUTURE: I could've just used string literals for operators when parsing them, then I don't need to free)
 
@@ -231,15 +229,15 @@ For example, for parallel commands, as execv needs null-terminated string arrays
 
 #### My strategy
 
-Since `args` is the memory block that stores the information for all commands and their parsed form, we can devise a iterative mechanism to free `args` at each end of loop.
+Since `args` is the memory block that stores the information for all commands and their parsed form, we can devise a iterative mechanism to free `args` after command execution.
 
 From `Line 194 - 196`, we free the args memory block using `free_args_elements`.
 
-Ok, but just freeing it naively until the memory is not a NULL element will not work due to <strong> Problem 1</strong>.
+Ok, but just freeing it naively until the memory is a NULL element will not work due to <strong> Problem 1</strong>.
 
-Ok, there may exist elements after NULL pointers, so maybe we can just check until MAXARGS length. But I found that malloc'd memory space might still contain random non-NULL garbage values, which causes double-free errors.
+Ok, there may exist elements after NULL pointers, so maybe we can just check until MAXARGS length. But I realized that malloc'd memory space might still contain random non-NULL garbage values, which causes double-free errors.
 
-So, this ultimately needed a tracking mechanism for the total number of arguments that are in the args to free. Therefore, I implemented a counter mechanism globally using `number_of_args`. And, in `parse_operator_in_args`, whenever we are incrementing the size of new_args, I'd count the new number of arguments. Using the old global size, I'd free the old args array accordingly.
+So, this ultimately needed a tracking mechanism for the total number of arguments that are in the args to free. Therefore, I implemented a counter mechanism globally using `number_of_args`. And, in `parse_operator_in_args`, whenever we are incrementing the size of `args`, I'd count the new number of arguments. Using the old global size, I'd free the old args array accordingly. Then I'd update the global_size to the new args size.
 
 This solves problem 1. 
 
@@ -252,11 +250,9 @@ Examples:
 `Line 641` - We free "|" in `execute_piped_commands` before we set the pointer to it to NULL for proper execv formatting.
 `Line 666` - Free ">" before we set it to NULL for execv formatting. We didn't need to free the filename after it because the ending free loop in main will catch it.
 
-By explicitly freeing every operator string before we set that pointer position to NULL for execv processing, we prevent the memory leak when.
-
+By explicitly freeing every operator string before we set that pointer position to NULL for execv processing, we prevent the memory leak.
 
 Problem 3 is the other cases:
-- Processing and freeing paths
+- Processing and freeing global var paths
 - Freeing input at the end
-- Freeing function independent strdup variables by themselves (e.g. the `file_name` part of the struct in `execute_piped_command`)
-
+- Freeing function locally created strdup variables (e.g. the `file_name` part of the struct in `execute_piped_command`)
