@@ -155,7 +155,7 @@ The program currently supports arbitrary configurations of parallel commands and
 
 Before all of this processing begins, the semi-processed input (like, ls -l|wc)is first put into a `char parsed_input[MAXLINE]` array, then, we segment the individual characters into separate strings in `char **args`.
 
-> char **args = malloc(MAXARGS * sizeof(char*));
+> `char **args = malloc(MAXARGS * sizeof(char*));`
 
 `char **args` is the main memory block of strings that every other parsing operation operates on.
 
