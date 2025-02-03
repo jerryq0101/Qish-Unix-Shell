@@ -52,12 +52,7 @@ int number_of_args = 0;
 
 int main(int argc, char *argv[])
 {
-        char* input = malloc(MAXLINE);
-        if (input == NULL)
-        {
-                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
-                exit(1);
-        }
+        char input[MAXLINE];
         int batch_mode = 0;
 
         // Handle Batch mode
@@ -90,18 +85,24 @@ int main(int argc, char *argv[])
                         fflush(stdout);
                 }
                 size_t variable = (long) MAXLINE;
-                ssize_t read = getline(&input, &variable, stdin);
+                char *buffer = NULL;
+                ssize_t read = getline(&buffer, &variable, stdin);
 
                 if (read == -1)
                 {
+                        free(buffer);
                         break;
                 }
+
+                strncpy(input, buffer, MAXLINE - 1);
+                input[MAXLINE - 1] = '\0';
+                free(buffer);
                 
                 // Handle empty input line
                 // Case: Works for both batch mode since we simply skip \n as normal behaviour. If EOF is after \n, we will catch it in the next getline.
                 // Case: If \n happens, args was never allocated since we continue, and we don't free args outside of this loop. so no double free or leak.
                 // Outside of the while: input and paths, which are freed outside the while loop at the end.
-                if (input[0] == '\n')   
+                if (input[0] == '\n')
                 {
                         continue;
                 }
@@ -199,7 +200,6 @@ int main(int argc, char *argv[])
         // Free global vars at the end
         // free_nested_arr(search_paths);
         free_search_paths();
-        free(input);
 }
 
 
