@@ -18,7 +18,7 @@ void parse_operator_in_args(char ***args, const char symbol);
 void configure_redirection(char **args);
 
 // Parallel Command
-int configure_parallel(char ***arg_list, char **args);
+void configure_parallel(char ***arg_list, char **args);
 
 // Built-in-command handlers
 void handle_cd(char **args);
@@ -55,16 +55,18 @@ int main(int argc, char *argv[])
         char input[MAXLINE];
         int batch_mode = 0;
 
-        // Handle Batch mode
-        if (argc > 1)
-        {
-                if (argc > 2)                                           // Catching case where there is many file inputs
-                {
-                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
-                        exit(1);
-                }
-                batch_mode = 1;
 
+        if (argc > 2)                           // Catching case where there is many file inputs
+        {
+                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                exit(1);
+        }
+                
+        // Handle Batch mode
+        if (argc == 2)
+        {
+
+                batch_mode = 1;
                 int fd;
                 if ((fd = open(argv[1], O_RDONLY)) == -1)
                 {
@@ -74,7 +76,7 @@ int main(int argc, char *argv[])
                 dup2(fd, STDIN_FILENO);
                 close(fd);
         }
-        
+
         add_bin_path_automatically();
 
         while (1)                                                       // Main While loop
@@ -106,7 +108,7 @@ int main(int argc, char *argv[])
                 {
                         continue;
                 }
-                
+
                 char parsed_input[MAXLINE];
                 null_terminate_input(parsed_input, input);
                 collapse_white_space_group(parsed_input, parsed_input);
@@ -122,10 +124,10 @@ int main(int argc, char *argv[])
                 split_input_redir_operator(parsed_input, args);
                 parse_operator_in_args(&args, '&');
                 parse_operator_in_args(&args, '|');
-                
+
                 // Check for parallel commands
                 char** command_arg_list[MAX_PARALLEL_COMMANDS] = {0};
-                int parallel_commands = configure_parallel(command_arg_list, args);
+                configure_parallel(command_arg_list, args);
                 
                 for (int i = 0; command_arg_list[i] != NULL; i++)
                 {
@@ -338,7 +340,7 @@ void parse_operator_in_args(char ***args, const char symbol)
                 {
                         // Process the item until no more & is found
                         char* current = dereferenced_args[index];                    // index of current position in string
-                        
+
                         // Case: the | is the only thing in here
                         if (strlen(current) == 1)
                         {
@@ -447,7 +449,7 @@ void configure_redirection(char **args)
 // configure_parallel - returns number of parallel commands there are
 // Precondition - args is well parsed, meaning that any meaningful symbol is separated as an individual item.
 // The function then separates args based on &, and puts each separate array of strings into arg_list
-int configure_parallel(char ***arg_list, char **args)
+void configure_parallel(char ***arg_list, char **args)
 {
         int commands_count = 0;
         int index = 0;
@@ -455,10 +457,8 @@ int configure_parallel(char ***arg_list, char **args)
 
         // Handle single & case
         if (args[0] != NULL && strcmp("&", args[0]) == 0 && args[1] == NULL) {
-                return 0;  // No commands to run
+                return;  // No commands to run
         }
-
-        int ended_with_amp = 0;
 
         // assume args terminates by the null pointer
         while (args[index] != NULL)
@@ -467,7 +467,7 @@ int configure_parallel(char ***arg_list, char **args)
                 {
                         // Error if first token is &
                         if (strcmp("&", args[index]) == 0) {
-                                return -1;  // Invalid format
+                                return;  // Invalid format
                         }
 
                         // Set the command arglist to be the beginning of each command
@@ -479,13 +479,10 @@ int configure_parallel(char ***arg_list, char **args)
                         free(args[index]);
                         args[index] = NULL;
                         set_pointer = 1;
-                        ended_with_amp = 1;
                         commands_count++;
                 }
                 index++;
         }
-
-        return commands_count + (set_pointer ? 0 : 1);
 }
 
 
@@ -631,7 +628,7 @@ void execute_piped_command(char **args)
         struct Command commands[sizeof(struct Command) * (pipe_count + 1)];
         int cmd_index = 0;
 
-        commands[0] = (struct Command){args, 0, 0, 0, 0, 0};
+        commands[0] = (struct Command){args, 0, {0}, 0, 0, 0};
 
         // Divides the command based on the location of the pipe operator
         for (int i = 0; args[i] != NULL; i++)
@@ -640,7 +637,7 @@ void execute_piped_command(char **args)
                 {
                         free(args[i]);
                         args[i] = NULL;
-                        commands[++cmd_index] = (struct Command){&args[i + 1], 0, 0, 0, 0, 0};
+                        commands[++cmd_index] = (struct Command){&args[i + 1], 0, {0}, 0, 0, 0};
                 }
         }
 
