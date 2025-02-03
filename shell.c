@@ -50,6 +50,7 @@ void execute_piped_command(char **args);
 char* search_paths[MAXPATHS * sizeof(char*)];
 int number_of_args = 0;
 
+// TODO: Any time there is an error I should free the contents
 int main(int argc, char *argv[])
 {
         char input[MAXLINE];
